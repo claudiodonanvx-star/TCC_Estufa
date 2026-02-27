@@ -1,0 +1,11 @@
+.vscode/
+
+# Build outputs
+**/build/
+
+# IDE/tooling
+**/.idea/
+**/.dart_tool/
+
+# Local embedded JDK (too large for GitHub)
+apiProjetoSensor/src/main/java/com/example/apiProjeto/oracleJdk-21/
