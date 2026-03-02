@@ -243,6 +243,10 @@ public class ClienteController {
             return ResponseEntity.status(403).body("Apenas administrador pode remover usuários.");
         }
 
+        if (normalizarCpf(cpf).equals(normalizarCpf(requesterCpf))) {
+            return ResponseEntity.badRequest().body("Não é permitido remover o próprio usuário administrador.");
+        }
+
         Optional<Cliente> clienteOpt = clienteRepository.findByCpf(cpf);
         if (clienteOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -255,9 +259,31 @@ public class ClienteController {
     }
 
     private boolean isAdministrador(String cpf) {
-        return clienteRepository.findByCpf(cpf)
+        return buscarPorCpfFlexivel(cpf)
                 .map(Cliente::isAdministrador)
                 .orElse(false);
+    }
+
+    private Optional<Cliente> buscarPorCpfFlexivel(String cpf) {
+        if (cpf == null || cpf.isBlank()) {
+            return Optional.empty();
+        }
+
+        Optional<Cliente> encontrado = clienteRepository.findByCpf(cpf);
+        if (encontrado.isPresent()) {
+            return encontrado;
+        }
+
+        String cpfNormalizado = normalizarCpf(cpf);
+        if (!cpfNormalizado.equals(cpf)) {
+            return clienteRepository.findByCpf(cpfNormalizado);
+        }
+
+        return Optional.empty();
+    }
+
+    private String normalizarCpf(String cpf) {
+        return cpf == null ? "" : cpf.replaceAll("\\D", "");
     }
 
 }

@@ -31,6 +31,27 @@ class ClientePendenteDto {
 }
 
 class ClienteService {
+  static String _normalizarCpf(String cpf) => cpf.replaceAll(RegExp(r'\D'), '');
+
+  static String _extrairMensagemResposta(http.Response response, {String fallback = 'Falha ao processar solicitação.'}) {
+    final body = response.body.trim();
+    if (body.isEmpty) {
+      return fallback;
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final mensagem = decoded['mensagem']?.toString();
+        if (mensagem != null && mensagem.isNotEmpty) {
+          return mensagem;
+        }
+      }
+    } catch (_) {}
+
+    return body;
+  }
+
   static String _normalizarBaseUrl(String ip) {
     var base = ip.trim();
     if (!base.startsWith('http://') && !base.startsWith('https://')) {
@@ -134,19 +155,49 @@ class ClienteService {
   }
 
   static Future<bool> removerCliente(String cpf, String requesterCpf) async {
+    final resultado = await removerClienteDetalhado(cpf, requesterCpf);
+    return resultado.sucesso;
+  }
+
+  static Future<OperacaoResultado> removerClienteDetalhado(String cpf, String requesterCpf) async {
     final baseUrl = await _carregarBaseUrlValida();
     if (baseUrl == null) {
-      return false;
+      return const OperacaoResultado(
+        sucesso: false,
+        statusCode: null,
+        mensagem: 'IP inválido ou sem conexão com a API.',
+      );
     }
 
     try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/api/clientes/$cpf?requesterCpf=$requesterCpf'),
+      final cpfAlvo = _normalizarCpf(cpf);
+      final cpfSolicitante = _normalizarCpf(requesterCpf);
+      final uri = Uri.parse('$baseUrl/api/clientes/$cpfAlvo').replace(
+        queryParameters: {'requesterCpf': cpfSolicitante},
       );
-      return response.statusCode == 200;
+
+      final response = await http.delete(
+        uri,
+      );
+
+      final sucesso = response.statusCode == 200;
+      final mensagem = _extrairMensagemResposta(
+        response,
+        fallback: sucesso ? 'Cliente removido com sucesso.' : 'Falha ao remover cliente.',
+      );
+
+      return OperacaoResultado(
+        sucesso: sucesso,
+        statusCode: response.statusCode,
+        mensagem: mensagem,
+      );
     } catch (e) {
       print('⚠️ Erro ao remover cliente: $e');
-      return false;
+      return OperacaoResultado(
+        sucesso: false,
+        statusCode: null,
+        mensagem: 'Erro de conexão ao remover cliente: $e',
+      );
     }
   }
 
@@ -233,4 +284,16 @@ class ClienteService {
       return false;
     }
   }
+}
+
+class OperacaoResultado {
+  final bool sucesso;
+  final int? statusCode;
+  final String mensagem;
+
+  const OperacaoResultado({
+    required this.sucesso,
+    required this.statusCode,
+    required this.mensagem,
+  });
 }

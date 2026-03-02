@@ -25,6 +25,8 @@ class _PerfilPageState extends State<PerfilPage> {
   Cliente? meuPerfil;
   bool carregando = true;
 
+  String _normalizarCpf(String cpf) => cpf.replaceAll(RegExp(r'\D'), '');
+
   @override
   void initState() {
     super.initState();
@@ -89,7 +91,7 @@ class _PerfilPageState extends State<PerfilPage> {
     final confirmado = await showDialog<bool>(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: Text('Recusar registro'),
             content: TextField(
               controller: motivoController,
@@ -99,11 +101,11 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text('Cancelar'),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text('Recusar'),
               ),
             ],
@@ -133,19 +135,28 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   Future<void> removerCliente(Cliente cliente) async {
+    if (_normalizarCpf(cliente.cpf) == _normalizarCpf(widget.cpfLogado)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não é permitido remover o próprio usuário administrador.'),
+        ),
+      );
+      return;
+    }
+
     final confirmar = await showDialog<bool>(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: Text('Remover cliente'),
             content: Text('Deseja remover ${cliente.nome}?'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text('Cancelar'),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text('Remover'),
               ),
             ],
@@ -154,23 +165,31 @@ class _PerfilPageState extends State<PerfilPage> {
 
     if (confirmar != true) return;
 
-    final sucesso = await ClienteService.removerCliente(cliente.cpf, widget.cpfLogado);
+    final resultado = await ClienteService.removerClienteDetalhado(
+      cliente.cpf,
+      widget.cpfLogado,
+    );
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          sucesso ? 'Cliente removido com sucesso.' : 'Falha ao remover cliente.',
+          resultado.sucesso
+              ? 'Cliente removido com sucesso.'
+              : 'Falha ao remover cliente (${resultado.statusCode ?? 'sem status'}): ${resultado.mensagem}',
         ),
       ),
     );
 
-    if (sucesso) {
+    if (resultado.sucesso) {
       carregarClientes();
     }
   }
 
   Widget _buildCardCliente(Cliente c, {bool permitirEdicao = true}) {
+    final podeRemover =
+        _normalizarCpf(c.cpf) != _normalizarCpf(widget.cpfLogado);
+
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
@@ -188,7 +207,11 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                     IconButton(
                       icon: Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => removerCliente(c),
+                      onPressed: podeRemover ? () => removerCliente(c) : null,
+                      tooltip:
+                          podeRemover
+                              ? 'Remover usuário'
+                              : 'Você não pode remover seu próprio usuário',
                     ),
                   ],
                 )
