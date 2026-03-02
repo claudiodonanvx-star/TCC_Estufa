@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estufa Smart | Painel da Empresa</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="loginOverlay" class="overlay">
+      <div class="login-card">
+        <h2>Acesso ao painel de trabalho</h2>
+        <p>Somente usuários cadastrados podem acessar.</p>
+        <form id="loginForm">
+          <input name="login" placeholder="Login" required />
+          <input name="senha" type="password" placeholder="Senha" required />
+          <button class="btn" type="submit">Entrar</button>
+        </form>
+        <small id="loginStatus"></small>
+      </div>
+    </div>
+
+    <div class="bg-pattern" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="container topbar-content">
+        <div>
+          <p class="kicker">Sistema Interno da Empresa</p>
+          <h1>Estufa Smart • Gestão Empresarial</h1>
+        </div>
+        <div class="api-box">
+          <label for="apiBase">URL da API</label>
+          <div class="api-box-row">
+            <input id="apiBase" type="text" placeholder="http://localhost:8080" />
+            <button id="saveApi" class="btn small" type="button">Salvar</button>
+          </div>
+          <div class="user-row">
+            <small id="apiStatus">Aguardando login...</small>
+            <small id="userInfo"></small>
+            <button id="logoutBtn" class="btn small" type="button">Sair</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <section class="card spotlight" data-permission="DASHBOARD">
+        <div>
+          <h2>Visão Executiva</h2>
+          <p>Painel interno separado do site comercial, com controle de acesso por perfil e permissões.</p>
+        </div>
+        <div class="chip-wrap">
+          <span class="chip">CRM Comercial</span>
+          <span class="chip">Contratos</span>
+          <span class="chip">Unidades</span>
+          <span class="chip">Funcionários</span>
+        </div>
+      </section>
+
+      <section class="kpi-grid" data-permission="DASHBOARD">
+        <article class="card kpi"><p>Leads Abertos</p><h3 id="kpiLeads">0</h3></article>
+        <article class="card kpi"><p>Clientes Ativos</p><h3 id="kpiClientes">0</h3></article>
+        <article class="card kpi"><p>Contratos Ativos</p><h3 id="kpiContratos">0</h3></article>
+        <article class="card kpi"><p>Unidades Ativas</p><h3 id="kpiUnidades">0</h3></article>
+        <article class="card kpi"><p>Atividades Pendentes</p><h3 id="kpiAtividades">0</h3></article>
+        <article class="card kpi"><p>Follow-up 30 dias</p><h3 id="kpiFollowup">0</h3></article>
+      </section>
+
+      <section class="grid-2" data-permission="COMERCIAL">
+        <article class="card table-card">
+          <div class="section-head"><h2>Leads</h2><button class="btn small" id="reloadLeads" type="button">Atualizar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Contato</th><th>Empresa</th><th>Status</th><th>Próximo contato</th></tr></thead><tbody id="leadsBody"></tbody></table></div>
+        </article>
+        <article class="card form-card">
+          <h2>Novo Lead Interno</h2>
+          <form id="leadForm">
+            <input name="nomeContato" placeholder="Nome do contato" required />
+            <input name="empresa" placeholder="Empresa" required />
+            <input name="email" type="email" placeholder="E-mail" />
+            <input name="telefone" placeholder="Telefone" />
+            <select name="status"><option value="NOVO">NOVO</option><option value="QUALIFICADO">QUALIFICADO</option><option value="PROPOSTA">PROPOSTA</option></select>
+            <button class="btn" type="submit">Salvar lead</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="grid-2" data-permission="CONTRATOS">
+        <article class="card table-card">
+          <div class="section-head"><h2>Clientes</h2><button class="btn small" id="reloadClientes" type="button">Atualizar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Razão social</th><th>Fantasia</th><th>CNPJ</th><th>Cidade/UF</th></tr></thead><tbody id="clientesBody"></tbody></table></div>
+        </article>
+        <article class="card form-card">
+          <h2>Novo Cliente</h2>
+          <form id="clienteForm">
+            <input name="razaoSocial" placeholder="Razão social" required />
+            <input name="nomeFantasia" placeholder="Nome fantasia" />
+            <input name="cnpj" placeholder="CNPJ" required />
+            <input name="segmento" placeholder="Segmento" />
+            <div class="inline-2"><input name="cidade" placeholder="Cidade" /><input name="estado" placeholder="UF" maxlength="2" /></div>
+            <button class="btn" type="submit">Salvar cliente</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="grid-2" data-permission="CONTRATOS">
+        <article class="card table-card">
+          <div class="section-head"><h2>Contratos</h2><button class="btn small" id="reloadContratos" type="button">Atualizar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Plano</th><th>Status</th><th>Unidades</th></tr></thead><tbody id="contratosBody"></tbody></table></div>
+        </article>
+        <article class="card form-card">
+          <h2>Novo Contrato</h2>
+          <form id="contratoForm">
+            <select name="clienteId" id="contratoCliente" required><option value="">Selecione o cliente</option></select>
+            <select name="plano" required><option value="BASICO">BÁSICO</option><option value="MEDIO">MÉDIO</option><option value="PREMIUM">PREMIUM</option></select>
+            <select name="status" required><option value="TESTE">TESTE</option><option value="ATIVO">ATIVO</option><option value="SUSPENSO">SUSPENSO</option></select>
+            <input name="valorMensal" type="number" step="0.01" min="0" placeholder="Valor mensal" required />
+            <div class="inline-2"><input name="inicioEm" type="date" required /><input name="fimEm" type="date" /></div>
+            <button class="btn" type="submit">Salvar contrato</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="grid-2" data-permission="UNIDADES">
+        <article class="card table-card">
+          <div class="section-head"><h2>Unidades</h2><button class="btn small" id="reloadUnidades" type="button">Atualizar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Unidade</th><th>Cidade</th><th>Estufas</th><th>Contratos</th></tr></thead><tbody id="unidadesBody"></tbody></table></div>
+        </article>
+        <article class="card form-card">
+          <h2>Nova Unidade + Vínculo</h2>
+          <form id="unidadeForm">
+            <input name="nomeUnidade" placeholder="Nome da unidade" required />
+            <div class="inline-2"><input name="cidade" placeholder="Cidade" /><input name="estado" placeholder="UF" maxlength="2" /></div>
+            <input name="quantidadeEstufas" type="number" min="1" value="1" required />
+            <select name="contratoId" id="unidadeContrato"><option value="">(Opcional) vincular a contrato</option></select>
+            <button class="btn" type="submit">Salvar unidade</button>
+          </form>
+
+          <h2 style="margin-top:14px">Vincular unidade existente</h2>
+          <form id="vinculoForm">
+            <select name="contratoId" id="vinculoContrato" required><option value="">Contrato</option></select>
+            <select name="unidadeId" id="vinculoUnidade" required><option value="">Unidade</option></select>
+            <button class="btn" type="submit">Vincular</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="grid-2" data-permission="ATIVIDADES">
+        <article class="card table-card">
+          <div class="section-head"><h2>Atividades</h2><button class="btn small" id="reloadAtividades" type="button">Atualizar</button></div>
+          <ul id="atividadesList" class="stack-list"></ul>
+        </article>
+        <article class="card form-card">
+          <h2>Nova Atividade</h2>
+          <form id="atividadeForm">
+            <select name="unidadeId" id="atividadeUnidade" required><option value="">Selecione a unidade</option></select>
+            <input name="titulo" placeholder="Título" required />
+            <input name="responsavel" placeholder="Responsável" />
+            <select name="prioridade"><option value="BAIXA">BAIXA</option><option value="MEDIA" selected>MEDIA</option><option value="ALTA">ALTA</option><option value="CRITICA">CRITICA</option></select>
+            <input name="prazoEm" type="date" />
+            <button class="btn" type="submit">Salvar atividade</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="grid-2" data-permission="USUARIOS">
+        <article class="card table-card">
+          <div class="section-head"><h2>Funcionários</h2><button class="btn small" id="reloadUsuarios" type="button">Atualizar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Gerente</th><th>Ativo</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
+        </article>
+        <article class="card form-card" data-permission="USUARIOS_CADASTRAR">
+          <h2>Novo Funcionário</h2>
+          <form id="usuarioForm">
+            <input name="nome" placeholder="Nome completo" required />
+            <input name="email" type="email" placeholder="E-mail" required />
+            <input name="login" placeholder="Login" required />
+            <input name="senha" type="password" placeholder="Senha" required />
+            <select name="perfil" required>
+              <option value="OPERADOR">OPERADOR</option>
+              <option value="ANALISTA">ANALISTA</option>
+              <option value="GERENTE">GERENTE</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+            <label class="checkline"><input type="checkbox" name="gerente" /> Campo gerente</label>
+            <button class="btn" type="submit">Cadastrar funcionário</button>
+          </form>
+        </article>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

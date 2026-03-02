@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estufa Smart | Site Comercial</title>
+    <meta name="description" content="Site comercial da Estufa Smart para captação de leads e apresentação do produto." />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="container hero-grid">
+        <div>
+          <p class="kicker">Site Comercial • Captação de Leads</p>
+          <h1>Monitoramento inteligente para estufas de alto desempenho</h1>
+          <p class="subtitle">
+            Solução completa para acompanhar clima, sensores e automações em tempo real,
+            com suporte dedicado para a operação agrícola.
+          </p>
+          <div class="hero-actions">
+            <a class="btn" href="#planos">Ver Planos</a>
+            <a class="btn ghost" href="#contato">Falar com Especialista</a>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <h3>Destaques</h3>
+          <ul>
+            <li>Alertas em tempo real para eventos críticos</li>
+            <li>Painel web e mobile para gestão centralizada</li>
+            <li>Relatórios operacionais e históricos por unidade</li>
+          </ul>
+        </aside>
+      </div>
+    </header>
+
+    <main class="container content">
+      <section class="stats">
+        <article class="card stat"><strong>+120</strong><span>Unidades monitoradas</span></article>
+        <article class="card stat"><strong>99,2%</strong><span>Disponibilidade da plataforma</span></article>
+        <article class="card stat"><strong>24/7</strong><span>Visibilidade operacional</span></article>
+      </section>
+
+      <section class="card" id="planos">
+        <h2>Planos do Produto</h2>
+        <div class="plans">
+          <article class="plan">
+            <h3>Básico</h3>
+            <p>Para operação inicial com monitoramento essencial.</p>
+            <ul>
+              <li>Temperatura e umidade</li>
+              <li>Acompanhamento mobile</li>
+              <li>Relatório operacional simples</li>
+            </ul>
+          </article>
+          <article class="plan featured">
+            <span class="badge">Mais escolhido</span>
+            <h3>Médio</h3>
+            <p>Mais controle para ganhos de produtividade.</p>
+            <ul>
+              <li>Recursos do Básico</li>
+              <li>Sensores CO2, pH e solo</li>
+              <li>Relatórios avançados no desktop</li>
+            </ul>
+          </article>
+          <article class="plan">
+            <h3>Premium</h3>
+            <p>Operação completa com automação integrada.</p>
+            <ul>
+              <li>Recursos do Médio</li>
+              <li>Automação de irrigação e aquecimento</li>
+              <li>Relatórios completos e comparativos</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Por que escolher a Estufa Smart</h2>
+        <div class="benefits">
+          <article>
+            <h3>Decisão rápida</h3>
+            <p>Dados claros para agir antes que o ambiente impacte o cultivo.</p>
+          </article>
+          <article>
+            <h3>Menos perdas</h3>
+            <p>Automação e alertas ajudam a reduzir falhas de operação.</p>
+          </article>
+          <article>
+            <h3>Escala com padrão</h3>
+            <p>Padronize monitoramento e gestão em múltiplas unidades.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card faq">
+        <h2>Perguntas frequentes</h2>
+        <details>
+          <summary>Em quanto tempo consigo operar com o sistema?</summary>
+          <p>Normalmente em poucos dias, dependendo da infraestrutura da unidade.</p>
+        </details>
+        <details>
+          <summary>Posso começar com plano menor e evoluir depois?</summary>
+          <p>Sim, você pode migrar de plano conforme a necessidade operacional.</p>
+        </details>
+        <details>
+          <summary>O sistema funciona para mais de uma estufa?</summary>
+          <p>Sim, o painel suporta múltiplas unidades com visão consolidada.</p>
+        </details>
+      </section>
+
+      <section class="card" id="contato">
+        <h2>Quero falar com a equipe</h2>
+        <form id="leadForm">
+          <input name="nomeContato" placeholder="Nome" required />
+          <input name="empresa" placeholder="Empresa" required />
+          <input name="email" type="email" placeholder="E-mail" required />
+          <input name="telefone" placeholder="Telefone" />
+          <textarea name="observacao" placeholder="Mensagem" rows="4"></textarea>
+          <button type="submit" class="btn">Enviar interesse</button>
+        </form>
+        <p id="status"></p>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
