@@ -17,7 +17,7 @@ public class CultivoController {
 
     @GetMapping("/cultivo-habilitado")
     public Cultivo getCultivoHabilitado() {
-        return cultivoRepository.findByHabilitadaTrue();
+        return cultivoRepository.findFirstByHabilitadaTrueOrderByIdDesc();
     }
 
     @GetMapping("/cultivos")

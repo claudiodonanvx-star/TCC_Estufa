@@ -12,6 +12,7 @@ public class SensorData {
 
     private float temperatura;
     private float umidade;
+    private Float umidadeSolo;
     private String significado;
 
     public SensorData() {}
@@ -28,6 +29,9 @@ public class SensorData {
 
     public float getUmidade() { return umidade; }
     public void setUmidade(float umidade) { this.umidade = umidade; }
+
+    public Float getUmidadeSolo() { return umidadeSolo; }
+    public void setUmidadeSolo(Float umidadeSolo) { this.umidadeSolo = umidadeSolo; }
 
     public String getSignificado() {
         return significado;

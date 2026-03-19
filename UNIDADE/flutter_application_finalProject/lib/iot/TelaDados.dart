@@ -246,6 +246,9 @@ class _TelaDadosState extends State<TelaDados> {
               Text(
                 'Umidade: ${_cultivoAtual?.umidadeMinima}% - ${_cultivoAtual?.umidadeMaxima}%',
               ),
+              Text(
+                'Umidade do Solo: ${_cultivoAtual?.umidadeSoloMinima}% - ${_cultivoAtual?.umidadeSoloMaxima}%',
+              ),
               SizedBox(height: 20),
               Text(
                 'Alterar cultivo:',
@@ -336,11 +339,14 @@ class _TelaDadosState extends State<TelaDados> {
                           '💧 Umidade',
                           '${ultimo?.umidade ?? '--'} %',
                         ),
+                        _buildCard(
+                          '🌱 Solo',
+                          '${ultimo?.umidadeSolo ?? '--'} %',
+                        ),
                         _buildCardComCor(
                           ultimo?.significado ?? '...',
                           _corDoSignificado(ultimo?.significado),
                         ),
-                        _buildCard('🔲 Placeholder 2', '...'),
                         _buildCard('🔲 Placeholder 3', '...'),
                         _buildCard('🔲 Placeholder 4', '...'),
                       ],

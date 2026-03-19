@@ -19,6 +19,8 @@ public class Cultivo {
     private float temperaturaMaxima;
     private float umidadeMinima;
     private float umidadeMaxima;
+    private float umidadeSoloMinima;
+    private float umidadeSoloMaxima;
     private boolean habilitada;
 
     public Long getId() {
@@ -75,6 +77,22 @@ public class Cultivo {
 
     public void setUmidadeMaxima(float umidadeMaxima) {
         this.umidadeMaxima = umidadeMaxima;
+    }
+
+    public float getUmidadeSoloMinima() {
+        return umidadeSoloMinima;
+    }
+
+    public void setUmidadeSoloMinima(float umidadeSoloMinima) {
+        this.umidadeSoloMinima = umidadeSoloMinima;
+    }
+
+    public float getUmidadeSoloMaxima() {
+        return umidadeSoloMaxima;
+    }
+
+    public void setUmidadeSoloMaxima(float umidadeSoloMaxima) {
+        this.umidadeSoloMaxima = umidadeSoloMaxima;
     }
 
     public boolean isHabilitada() {

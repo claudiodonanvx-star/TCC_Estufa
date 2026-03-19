@@ -32,6 +32,7 @@ public class SensorController {
         System.out.println("📥 Dados recebidos:");
         System.out.println("🌡️ Temperatura: " + dados.getTemperatura());
         System.out.println("💧 Umidade: " + dados.getUmidade());
+        System.out.println("🌱 Umidade do solo: " + dados.getUmidadeSolo());
         System.out.println("🔎 Significado: " + dados.getSignificado());
         return ResponseEntity.ok("Dados salvos com sucesso");
     }
