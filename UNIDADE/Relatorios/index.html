@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Estufa Smart</title>
+  <link rel="stylesheet" href="login.css" />
+  <script src="login.js" defer></script>
+</head>
+<body>
+  <main class="login-wrapper">
+    <section class="login-card">
+      <img src="logo_colorido.png" alt="Logo colorida" class="logo" />
+      <h1>Estufa Smart</h1>
+      <p class="subtitle">Entre com usuário e senha para acessar o relatório</p>
+
+      <form id="login-form">
+        <label for="login">Usuário</label>
+        <input id="login" name="login" type="text" required placeholder="Digite seu usuário" />
+
+        <label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" required placeholder="Digite sua senha" />
+
+        <button type="submit" id="btn-entrar">Entrar</button>
+      </form>
+
+      <p id="mensagem" class="mensagem"></p>
+    </section>
+  </main>
+</body>
+</html>

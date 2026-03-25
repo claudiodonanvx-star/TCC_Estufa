@@ -1,0 +1,122 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1f14;
+      color: #e0f0e5;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      background: #102918;
+      border-bottom: 2px solid #1e5c32;
+    }
+    header .logo { display: flex; align-items: center; gap: 10px; }
+    header .logo img { width: 40px; height: 40px; object-fit: contain; }
+    header .logo span { font-size: 28px; }
+    header h1 { font-size: 1.3rem; font-weight: 700; color: #5dd88a; letter-spacing: .5px; }
+    header .atualizado { font-size: .8rem; color: #7aad90; }
+    #badge-status {
+      padding: 6px 16px; border-radius: 20px;
+      font-size: .85rem; font-weight: 600;
+      background: #1e5c32; color: #5dd88a;
+      border: 1px solid #2e8a4e;
+      transition: background .4s, color .4s;
+    }
+    #badge-status.alerta { background: #5c1e1e; color: #ff7f7f; border-color: #8a2e2e; }
+
+    /* ── MAIN ── */
+    main { padding: 28px 32px; max-width: 1300px; margin: 0 auto; }
+
+    /* ── SEÇÃO: ÚLTIMO REGISTRO ── */
+    .section-title {
+      font-size: .7rem; text-transform: uppercase; letter-spacing: 2px;
+      color: #5dd88a; margin-bottom: 14px; margin-top: 24px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 18px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #102918;
+      border: 1px solid #1e5c32;
+      border-radius: 14px;
+      padding: 22px 20px;
+      text-align: center;
+      transition: transform .2s, border-color .3s;
+    }
+    .card:hover { transform: translateY(-3px); border-color: #5dd88a; }
+    .card .icon { font-size: 2rem; margin-bottom: 8px; }
+    .card .label { font-size: .78rem; color: #7aad90; text-transform: uppercase; letter-spacing: 1px; }
+    .card .valor {
+      font-size: 2.4rem; font-weight: 700; color: #5dd88a;
+      line-height: 1.2; margin: 6px 0 4px;
+    }
+    .card .unidade { font-size: .85rem; color: #7aad90; }
+    .card.alerta { border-color: #ff7f7f; }
+    .card.alerta .valor { color: #ff9e9e; }
+
+    /* ── GAUGES ── */
+    .gauges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 30px;
+    }
+    .gauge-wrap {
+      background: #102918;
+      border: 1px solid #1e5c32;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .gauge-wrap .gauge-label { font-size: .78rem; color: #7aad90; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .gauge-wrap canvas { max-width: 180px; display: block; margin: 0 auto; }
+
+    /* ── HISTÓRICO ── */
+    .chart-box {
+      background: #102918;
+      border: 1px solid #1e5c32;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 30px;
+    }
+    .chart-box h3 { font-size: .95rem; color: #5dd88a; margin-bottom: 16px; }
+
+    /* ── TABELA ── */
+    .table-box {
+      background: #102918;
+      border: 1px solid #1e5c32;
+      border-radius: 14px;
+      padding: 24px;
+      overflow-x: auto;
+    }
+    .table-box h3 { font-size: .95rem; color: #5dd88a; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    thead tr { background: #1e5c32; }
+    th { padding: 10px 14px; text-align: left; font-weight: 600; color: #c8f0d8; font-size: .78rem; text-transform: uppercase; letter-spacing: .8px; }
+    td { padding: 10px 14px; border-bottom: 1px solid #1a3a24; color: #cde8d7; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #152e1e; }
+    .pill {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: .75rem; font-weight: 600;
+    }
+    .pill-ok   { background: #1e5c32; color: #5dd88a; }
+    .pill-warn { background: #5c3a1e; color: #ffb347; }
+    .pill-bad  { background: #5c1e1e; color: #ff7f7f; }
+
+    /* ── FOOTER ── */
+    footer { text-align: center; padding: 20px; color: #3a6b4a; font-size: .75rem; }

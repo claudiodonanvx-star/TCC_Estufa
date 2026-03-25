@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório – Estufa Inteligente</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="relatoriodoProduto.css" />
+  <script src="relatoriodoProduto.js" defer></script>
+
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="logo_colorido.png" alt="Logo colorida" />
+    <h1>Estufa Smart — Relatório de Monitoramento</h1>
+  </div>
+  <div style="text-align:right">
+    <div id="badge-status">Carregando...</div>
+    <div class="atualizado" style="margin-top:5px">Atualizado: <span id="ultima-atualizacao"></span></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── ÚLTIMO REGISTRO ── -->
+  <p class="section-title">Último Registro</p>
+  <div class="cards-grid">
+    <div class="card" id="card-temp">
+      <div class="icon">🌡️</div>
+      <div class="label">Temperatura</div>
+      <div class="valor" id="val-temp">–</div>
+      <div class="unidade">°C</div>
+    </div>
+    <div class="card" id="card-umid">
+      <div class="icon">💧</div>
+      <div class="label">Umidade do Ar</div>
+      <div class="valor" id="val-umid">–</div>
+      <div class="unidade">%</div>
+    </div>
+    <div class="card" id="card-solo">
+      <div class="icon">🌱</div>
+      <div class="label">Umidade do Solo</div>
+      <div class="valor" id="val-solo">–</div>
+      <div class="unidade">%</div>
+    </div>
+    <div class="card" id="card-sig">
+      <div class="icon">📋</div>
+      <div class="label">Status</div>
+      <div class="valor" id="val-sig" style="font-size:1rem;margin-top:10px;line-height:1.4">–</div>
+    </div>
+  </div>
+
+  <!-- ── GAUGES ── -->
+  <p class="section-title">Indicadores Visuais</p>
+  <div class="gauges-grid">
+    <div class="gauge-wrap">
+      <div class="gauge-label">🌡️ Temperatura</div>
+      <canvas id="gauge-temp"></canvas>
+    </div>
+    <div class="gauge-wrap">
+      <div class="gauge-label">💧 Umidade do Ar</div>
+      <canvas id="gauge-umid"></canvas>
+    </div>
+    <div class="gauge-wrap">
+      <div class="gauge-label">🌱 Umidade do Solo</div>
+      <canvas id="gauge-solo"></canvas>
+    </div>
+  </div>
+
+  <!-- ── HISTÓRICO ── -->
+  <p class="section-title">Histórico — Últimas 15 Leituras</p>
+  <div class="chart-box">
+    <h3>Temperatura · Umidade · Solo</h3>
+    <canvas id="grafico-historico" height="100"></canvas>
+  </div>
+
+  <!-- ── TABELA ── -->
+  <p class="section-title">Tabela de Registros Recentes</p>
+  <div class="table-box">
+    <h3>Últimas 10 leituras</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Temperatura (°C)</th>
+          <th>Umidade (%)</th>
+          <th>Umidade do Solo (%)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-tabela">
+        <tr><td colspan="5" style="text-align:center;color:#3a6b4a">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<footer>TCC Estufa Inteligente &mdash; Dados atualizados a cada 5 segundos</footer>
+
+
+</body>
+</html>
