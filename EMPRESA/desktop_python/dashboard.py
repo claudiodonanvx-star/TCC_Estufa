@@ -24,38 +24,38 @@ FONT_UI = "Segoe UI"
 
 THEME_PALETTES: dict[str, dict[str, object]] = {
     "dark": {
-        "bg": "#0f1f14",
-        "bg_soft": "#1a2f1f",
-        "surface": "#1b3323",
-        "surface_alt": "#13251a",
-        "border": "#3d5c45",
-        "text": "#e9f4e8",
-        "muted": "#bdd2bf",
-        "primary": "#95da72",
-        "primary_strong": "#5ea346",
-        "primary_dark": "#2f5e35",
+        "bg": "#10271e",
+        "bg_soft": "#173328",
+        "surface": "#173328",
+        "surface_alt": "#1e3f31",
+        "border": "#2f5b4a",
+        "text": "#e5f5ec",
+        "muted": "#b0d2c0",
+        "primary": "#7EDBA1",
+        "primary_strong": "#44B07A",
+        "primary_dark": "#0E7D63",
         "selection_fg": "#f6fff5",
         "info": "#7bc4ff",
         "warning": "#f5c56e",
         "danger": "#f38181",
-        "funnel_colors": ["#5ea346", "#2f5e35", "#416c3f", "#2b7a4b", "#2b5e73", "#7b3f34"],
+        "funnel_colors": ["#44B07A", "#0E7D63", "#2F8B69", "#55AA85", "#2D7A8A", "#8F6242"],
     },
     "light": {
-        "bg": "#eef4ec",
-        "bg_soft": "#dce9da",
+        "bg": "#F2FFF6",
+        "bg_soft": "#E9FFF1",
         "surface": "#ffffff",
-        "surface_alt": "#f5faf3",
-        "border": "#b7cdb5",
-        "text": "#163320",
-        "muted": "#4d6b55",
-        "primary": "#2f7d32",
-        "primary_strong": "#3e9a42",
-        "primary_dark": "#296e30",
+        "surface_alt": "#ECFFF3",
+        "border": "#B7E8CB",
+        "text": "#113128",
+        "muted": "#3E6C5B",
+        "primary": "#0E7D63",
+        "primary_strong": "#128A6C",
+        "primary_dark": "#0A4E44",
         "selection_fg": "#f6fff5",
-        "info": "#1f6dbe",
-        "warning": "#b56e08",
-        "danger": "#cc4f4f",
-        "funnel_colors": ["#3e9a42", "#296e30", "#4d8952", "#5d8f62", "#2f6e75", "#9e5d31"],
+        "info": "#1D79B5",
+        "warning": "#BB7A11",
+        "danger": "#C94C4C",
+        "funnel_colors": ["#128A6C", "#0A4E44", "#2C9A77", "#5FB393", "#2D7A8A", "#9E6A32"],
     },
 }
 
@@ -113,13 +113,13 @@ def _set_theme_globals(theme_name: str) -> None:
     FUNNEL_COLORS = list(palette["funnel_colors"])
 
 
-_set_theme_globals("dark")
+_set_theme_globals("light")
 
 
 class DashboardApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.current_theme = "dark"
+        self.current_theme = "light"
         _set_theme_globals(self.current_theme)
 
         self.title("Estufa Smart | Painel Desktop Empresa")

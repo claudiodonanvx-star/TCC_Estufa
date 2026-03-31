@@ -2,6 +2,7 @@ package estufa.empresa.controller
 
 import estufa.empresa.model.UnidadeOperacional
 import estufa.empresa.model.PerfilAcesso
+import estufa.empresa.model.StatusFinanceiro
 import estufa.empresa.repository.ContratoUnidadeRepository
 import estufa.empresa.repository.UnidadeOperacionalRepository
 import estufa.empresa.service.AccessGuardService
@@ -45,6 +46,7 @@ class UnidadeOperacionalController {
                     estado            : unidade.estado,
                     quantidadeEstufas : unidade.quantidadeEstufas,
                     ativa             : unidade.ativa,
+                    statusFinanceiro  : unidade.statusFinanceiro?.name(),
                     ultimaSincronizacao: unidade.ultimaSincronizacao,
                     contratos         : vinculos.collect { v ->
                         [
@@ -68,6 +70,7 @@ class UnidadeOperacionalController {
                 estado: payload.estado,
                 quantidadeEstufas: payload.quantidadeEstufas ?: 1,
                 ativa: payload.ativa == null ? true : payload.ativa,
+                statusFinanceiro: (payload.ativa == null ? true : payload.ativa) ? StatusFinanceiro.ATIVO : StatusFinanceiro.CANCELADO,
                 ultimaSincronizacao: payload.ultimaSincronizacao
         )
         unidadeRepository.save(unidade)

@@ -215,9 +215,9 @@ class _TelaDadosState extends State<TelaDados> {
     await _buscarCultivoAtual();
     await _buscarCultivosDisponiveis();
 
-    //  os prints aqui:
-    print('Cultivo atual: $_cultivoAtual');
-    print('Cultivos disponíveis: $_cultivosDisponiveis');
+    if (!mounted) {
+      return;
+    }
 
     if (_cultivoAtual == null || _cultivosDisponiveis.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -228,46 +228,207 @@ class _TelaDadosState extends State<TelaDados> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Cultivo atual: ${_cultivoAtual?.nome ?? 'Nenhum'}',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 12),
-              Text('Tipo: ${_cultivoAtual?.tipo}'),
-              Text(
-                'Temperatura: ${_cultivoAtual?.temperaturaMinima}°C - ${_cultivoAtual?.temperaturaMaxima}°C',
-              ),
-              Text(
-                'Umidade: ${_cultivoAtual?.umidadeMinima}% - ${_cultivoAtual?.umidadeMaxima}%',
-              ),
-              Text(
-                'Umidade do Solo: ${_cultivoAtual?.umidadeSoloMinima}% - ${_cultivoAtual?.umidadeSoloMaxima}%',
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Alterar cultivo:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              ..._cultivosDisponiveis
-                  .where((c) => !c.habilitada)
-                  .map(
-                    (cultivo) => ListTile(
-                      title: Text(cultivo.nome),
-                      subtitle: Text(cultivo.tipo),
-                      trailing: Icon(Icons.swap_horiz),
-                      onTap: () async {
-                        await _alterarCultivo(cultivo.id);
-                        Navigator.pop(context);
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF3FFF6),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade200,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Icon(Icons.eco_outlined, color: Color(0xFF0E7D63)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Plantas cadastradas',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Color(0xFF0A4E44),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_cultivosDisponiveis.length} cultivos disponíveis para esta safra',
+                    style: TextStyle(color: Colors.green.shade800),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0E7D63), Color(0xFF0A4E44)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.20),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.local_florist,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _cultivoAtual?.nome ?? 'Nenhum cultivo ativo',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 17,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.20),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'ATIVA',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Tipo: ${_cultivoAtual?.tipo ?? '--'}',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        Text(
+                          'Temp: ${_cultivoAtual?.temperaturaMinima}°C - ${_cultivoAtual?.temperaturaMaxima}°C',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        Text(
+                          'Umidade: ${_cultivoAtual?.umidadeMinima}% - ${_cultivoAtual?.umidadeMaxima}%',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Selecionar outra planta',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0A4E44),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _cultivosDisponiveis.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final cultivo = _cultivosDisponiveis[index];
+                        final isAtivo = cultivo.habilitada;
+                        return Material(
+                          color:
+                              isAtivo ? const Color(0xFFE0F7E8) : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color:
+                                    isAtivo
+                                        ? const Color(0xFF0E7D63)
+                                        : Colors.green.shade100,
+                              ),
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor:
+                                  isAtivo
+                                      ? const Color(0xFF0E7D63)
+                                      : Colors.green.shade100,
+                              child: Icon(
+                                isAtivo ? Icons.check : Icons.spa_outlined,
+                                color:
+                                    isAtivo
+                                        ? Colors.white
+                                        : const Color(0xFF0E7D63),
+                              ),
+                            ),
+                            title: Text(
+                              cultivo.nome,
+                              style: TextStyle(
+                                fontWeight:
+                                    isAtivo ? FontWeight.w700 : FontWeight.w600,
+                                color: const Color(0xFF0A4E44),
+                              ),
+                            ),
+                            subtitle: Text(cultivo.tipo),
+                            trailing:
+                                isAtivo
+                                    ? const Text(
+                                      'Atual',
+                                      style: TextStyle(
+                                        color: Color(0xFF0E7D63),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    )
+                                    : const Icon(Icons.swap_horiz),
+                            onTap:
+                                isAtivo
+                                    ? null
+                                    : () async {
+                                      await _alterarCultivo(cultivo.id);
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                          ),
+                        );
                       },
                     ),
                   ),
-            ],
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -292,16 +453,52 @@ class _TelaDadosState extends State<TelaDados> {
             icon: Icon(Icons.settings),
             onPressed: _mostrarDialogoDeIp,
           ),
-          TextButton.icon(
-            icon: Icon(
-              Icons.local_florist,
-              color: const Color.fromARGB(255, 7, 163, 77),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: _mostrarMenuCultivo,
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0E7D63), Color(0xFF13A15D)],
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.local_florist,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        _cultivoAtual?.nome ?? 'Cultivo',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.expand_more,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            label: Text(
-              _cultivoAtual?.nome ?? 'Cultivo',
-              style: TextStyle(color: const Color.fromARGB(255, 18, 209, 18)),
-            ),
-            onPressed: _mostrarMenuCultivo,
           ),
         ],
       ),

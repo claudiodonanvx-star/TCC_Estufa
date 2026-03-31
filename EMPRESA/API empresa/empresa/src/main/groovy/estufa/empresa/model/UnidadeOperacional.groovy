@@ -2,6 +2,8 @@ package estufa.empresa.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -31,6 +33,10 @@ class UnidadeOperacional {
 
     @Column(name = "ativa", nullable = false)
     Boolean ativa = true
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_financeiro", nullable = false, length = 20)
+    StatusFinanceiro statusFinanceiro = StatusFinanceiro.ATIVO
 
     @Column(name = "ultima_sincronizacao")
     LocalDateTime ultimaSincronizacao
