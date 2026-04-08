@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Estufa Smart | Monitoramento Inteligente</title>
+
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+</head>
+
+<body>
+
+<header class="topbar">
+
+<div class="container topbar-content">
+
+<div class="logo">
+🌱 Estufa Smart
+</div>
+
+<button id="menuBtn" class="menu-btn">
+☰
+</button>
+
+</div>
+
+</header>
+
+
+<!-- MENU LATERAL -->
+
+<nav id="menu" class="menu">
+
+<button id="closeMenu" class="close-btn">
+✖
+</button>
+
+<ul>
+
+<li><a href="#">Início</a></li>
+<li><a href="#planos">Planos</a></li>
+<li><a href="#contato">Contato</a></li>
+
+</ul>
+
+<hr>
+
+<div class="menu-buttons">
+
+<button class="btn" id="loginBtn">Login</button>
+
+<button class="btn ghost" id="registerBtn">Cadastro</button>
+
+</div>
+
+</nav>
+
+<div id="overlay"></div>
+
+
+<!-- HERO -->
+
+<section class="hero section-box">
+
+<div class="container hero-grid">
+
+<div>
+
+<p class="kicker">
+Monitoramento agrícola inteligente
+</p>
+
+<h1>
+Controle total da sua estufa em tempo real
+</h1>
+
+<p class="subtitle">
+Sensores, automação e análise de dados para aumentar produtividade agrícola.
+</p>
+
+<div class="hero-actions">
+
+<a class="btn" href="#planos">
+Ver Planos
+</a>
+
+<a class="btn ghost" href="#contato">
+Falar com especialista
+</a>
+
+</div>
+
+</div>
+
+<aside class="hero-card">
+
+<h3>Destaques</h3>
+
+<ul>
+
+<li>Alertas em tempo real</li>
+<li>Painel web e mobile</li>
+<li>Relatórios completos</li>
+
+</ul>
+
+</aside>
+
+</div>
+
+</section>
+
+
+<div class="section-divider"></div>
+
+
+<!-- PLANOS -->
+
+<section class="container section-box" id="planos">
+
+<h2 class="section-title">
+Escolha seu Plano
+</h2>
+
+<div class="plans">
+
+<article class="plan">
+
+<h3>Básico</h3>
+
+<p class="price">
+R$49 <span>/mês</span>
+</p>
+
+<ul>
+<li>✔ Temperatura</li>
+<li>✔ Umidade</li>
+<li>✔ App mobile</li>
+</ul>
+
+<button class="btn">
+Escolher plano
+</button>
+
+</article>
+
+
+<article class="plan featured">
+
+<div class="badge">
+Mais escolhido
+</div>
+
+<h3>Profissional</h3>
+
+<p class="price">
+R$99 <span>/mês</span>
+</p>
+
+<ul>
+<li>✔ Sensores CO₂</li>
+<li>✔ Relatórios avançados</li>
+<li>✔ Controle remoto</li>
+<li>✔ Suporte prioritário</li>
+</ul>
+
+<button class="btn">
+Escolher plano
+</button>
+
+</article>
+
+
+<article class="plan">
+
+<h3>Premium</h3>
+
+<p class="price">
+R$199 <span>/mês</span>
+</p>
+
+<ul>
+<li>✔ Automação total</li>
+<li>✔ Irrigação automática</li>
+<li>✔ Aquecimento inteligente</li>
+</ul>
+
+<button class="btn">
+Escolher plano
+</button>
+
+</article>
+
+</div>
+
+</section>
+
+
+<div class="section-divider"></div>
+
+
+<!-- CONTATO -->
+
+<section class="container contato section-box" id="contato">
+
+<h2 class="section-title">
+Fale com nossa equipe
+</h2>
+
+<form class="contact-form" id="leadForm">
+
+<div class="form-grid">
+
+<input placeholder="Nome completo">
+<input placeholder="Empresa">
+
+</div>
+
+<div class="form-grid">
+
+<input placeholder="Email">
+<input placeholder="Telefone">
+
+</div>
+
+<textarea placeholder="Mensagem"></textarea>
+
+<button class="btn big">
+Enviar mensagem
+</button>
+
+<p id="status"></p>
+
+</form>
+
+</section>
+
+
+<div class="section-divider"></div>
+
+
+<!-- MAPA DE CLIENTES -->
+
+<section class="container section-box client-map-section" id="mapa-clientes">
+
+<h2 class="section-title">
+Clientes pelo Brasil
+</h2>
+
+<p class="map-subtitle">
+Veja alguns endereços fictícios de clientes atendidos em diferentes estados.
+</p>
+
+<div id="clientMap" class="client-map" aria-label="Mapa com localizacao de clientes"></div>
+
+</section>
+
+
+<!-- LOGIN -->
+
+<div id="loginModal" class="modal">
+
+<div class="modal-box">
+
+<button class="closeModal">✖</button>
+
+<h2>Login</h2>
+
+<form>
+
+<input type="text" placeholder="Usuário" required>
+
+<input type="password" placeholder="Senha" required>
+
+<button class="btn big">Acessar</button>
+
+</form>
+
+</div>
+
+</div>
+
+
+<!-- CADASTRO -->
+
+<div id="registerModal" class="modal">
+
+<div class="modal-box">
+
+<button class="closeModal">✖</button>
+
+<h2>Cadastro</h2>
+
+<form>
+
+<input type="text" placeholder="Nome completo" required>
+
+<input type="text" placeholder="CPF" required>
+
+<input type="text" placeholder="Telefone" required>
+
+<input type="text" placeholder="Endereço" required>
+
+<input type="email" placeholder="Email" required>
+
+<input type="password" placeholder="Senha" required>
+
+<button class="btn big">Cadastrar</button>
+
+</form>
+
+</div>
+
+</div>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="script.js"></script>
+
+</body>
+</html>
