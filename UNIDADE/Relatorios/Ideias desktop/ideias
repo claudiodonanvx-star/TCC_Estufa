@@ -1,0 +1,219 @@
+IDEIAS PARA DESKTOP UNIDADE (JAVA) - DASHBOARD E RELATORIOS
+
+Objetivo do desktop
+- Criar um desktop Java para cliente final da UNIDADE consumindo a API.
+- Mostrar saude da estufa de forma clara, com foco em decisao rapida.
+- Entregar visoes por periodo: diario, semanal e mensal.
+- Gerar relatorios inteligentes com resumo automatico e recomendacoes.
+
+Principais perguntas que o dashboard deve responder
+1. A estufa esta saudavel agora?
+2. Melhorou ou piorou no periodo?
+3. O que deve ser feito hoje para evitar problema?
+
+----------------------------------------
+1) ABA VISAO GERAL (HOJE)
+----------------------------------------
+
+KPIs principais (cards)
+- Temperatura media do dia
+- Umidade do ar media do dia
+- Umidade do solo media do dia
+- Tempo em faixa ideal (%)
+- Alertas criticos nas ultimas 24h
+- Acionamentos automaticos vs forcados
+- Indice de saude da estufa (0-100)
+
+Graficos da tela
+- Linha (24h): temperatura, umidade do ar, umidade do solo
+- Donut: tempo em faixa ideal x fora da faixa
+- Barras: alertas por tipo (quente, frio, solo seco, umidade alta, etc.)
+
+----------------------------------------
+2) ABA DIARIO
+----------------------------------------
+
+Conteudo
+- Tabela por bloco de horario (15 min ou 1h)
+- Timeline de eventos (ligou/desligou irrigacao, ventilacao e motivo)
+
+Indicadores diarios
+- Pico de temperatura
+- Menor umidade do solo
+- Quantidade de alertas
+- Horas fora da faixa ideal
+
+Graficos recomendados
+- Linha temporal detalhada do dia
+- Barras por hora com quantidade de alertas
+
+----------------------------------------
+3) ABA SEMANAL
+----------------------------------------
+
+Conteudo
+- Comparativo entre dias da semana
+- Tendencia da semana atual vs semana anterior
+
+Indicadores semanais
+- Melhor dia (maior tempo em faixa ideal)
+- Pior dia (maior tempo fora da faixa)
+- Variacao da saude da estufa (%)
+
+Graficos recomendados
+- Barras por dia: horas fora da faixa
+- Heatmap dia x horario com nivel de risco
+- Linha comparativa (semana atual x anterior)
+
+----------------------------------------
+4) ABA MENSAL
+----------------------------------------
+
+Conteudo
+- Evolucao por semana dentro do mes
+- Ranking dos dias mais criticos
+
+Indicadores mensais
+- Percentual medio de tempo ideal
+- Total de alertas criticos do mes
+- Efetividade da automacao
+
+Graficos recomendados
+- Linha semanal consolidada
+- Barras de ranking de dias criticos
+- Donut de eficiencia operacional
+
+----------------------------------------
+5) ABA RELATORIOS INTELIGENTES
+----------------------------------------
+
+Saidas
+- Relatorio diario
+- Relatorio semanal
+- Relatorio mensal
+
+Formato
+- Resumo automatico em linguagem simples
+- Top 3 riscos do periodo
+- Top 3 recomendacoes praticas
+
+Exemplo de resumo automatico
+- "Na semana, a estufa ficou 81% do tempo em faixa ideal. O maior risco foi solo seco entre 12h e 15h."
+
+Exportacao
+- PDF executivo (1 pagina para cliente)
+- CSV detalhado (para analise tecnica)
+
+----------------------------------------
+6) GRAFICOS IDEAIS (SEM COMPLEXIDADE)
+----------------------------------------
+
+Usar no MVP
+- Linha: series temporais
+- Barras: comparacoes de dias/semanas
+- Donut: proporcoes de tempo ideal x alerta
+- Heatmap: padrao de risco por horario
+- Gauge (opcional): indice de saude da estufa
+
+----------------------------------------
+7) STACK SUGERIDA PARA DESKTOP JAVA
+----------------------------------------
+
+Interface
+- JavaFX
+
+Graficos
+- XChart (mais simples para comecar)
+- ou JFreeChart (mais opcoes de visual)
+
+Consumo da API
+- WebClient (Spring) ou OkHttp
+
+Relatorios
+- PDF: OpenPDF ou iText
+- CSV: geracao nativa com java.io/java.nio
+
+----------------------------------------
+8) ENDPOINTS QUE O DESKTOP PRECISA
+----------------------------------------
+
+Resumo consolidado
+- GET /api/relatorios/resumo?unidadeId=...&periodo=diario|semanal|mensal
+
+Serie temporal
+- GET /api/relatorios/serie?unidadeId=...&inicio=...&fim=...&intervalo=15m|1h|1d
+
+Alertas agregados
+- GET /api/relatorios/alertas?unidadeId=...&inicio=...&fim=...
+
+Eventos de atuacao
+- GET /api/relatorios/eventos?unidadeId=...&inicio=...&fim=...
+
+Exportacao
+- GET /api/relatorios/export/pdf?tipo=diario|semanal|mensal&unidadeId=...
+- GET /api/relatorios/export/csv?tipo=diario|semanal|mensal&unidadeId=...
+
+----------------------------------------
+9) LOGICA DE "RELATORIO INTELIGENTE" SEM IA COMPLEXA
+----------------------------------------
+
+Processo
+1. Coletar metricas do periodo
+2. Aplicar regras de negocio com limiares
+3. Gerar resumo textual por templates
+4. Priorizar no maximo 3 recomendacoes
+
+Regras exemplo
+- Se tempo em faixa ideal < 70%, marcar periodo como "ATENCAO"
+- Se solo seco recorrente no mesmo horario por 3 dias, recomendar ajuste de irrigacao nesse horario
+- Se acionamento forcado > automatico, recomendar revisao da automacao
+
+----------------------------------------
+10) PLANO DE IMPLEMENTACAO (FASES)
+----------------------------------------
+
+Fase 1 - MVP (7 dias)
+- Tela Visao Geral + Diario
+- 6 KPIs + 3 graficos principais
+- Filtro por unidade e periodo
+- Exportacao CSV
+
+Fase 2 (7 a 10 dias)
+- Telas Semanal + Mensal
+- Heatmap e comparativo de periodos
+- Relatorio PDF executivo
+
+Fase 3 (evolucao)
+- Alertas preditivos basicos
+- Agendamento automatico de relatorio
+- Envio de relatorio por e-mail
+
+----------------------------------------
+11) ORGANIZACAO SUGERIDA DE TELAS (DESKTOP)
+----------------------------------------
+
+Menu lateral
+- Visao Geral
+- Diario
+- Semanal
+- Mensal
+- Relatorios
+- Configuracoes
+
+Filtros globais no topo
+- Unidade
+- Periodo
+- Tipo de cultivo (se aplicavel)
+- Botao Atualizar
+
+----------------------------------------
+12) RESULTADO ESPERADO PARA O CLIENTE
+----------------------------------------
+
+- Entender rapidamente a situacao da estufa
+- Receber recomendacoes claras de acao
+- Comparar desempenho no tempo
+- Ter relatorio pronto para decisao e apresentacao
+
+Observacao
+- Escopo focado exclusivamente na pasta UNIDADE (API + mobile + C++ de referencia), com desktop novo em Java consumindo API.

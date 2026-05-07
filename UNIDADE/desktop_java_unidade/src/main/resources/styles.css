@@ -1,0 +1,67 @@
+.root {
+    -fx-font-family: "Segoe UI";
+    -fx-background-color: linear-gradient(to bottom, #f4fff8, #edf7ff);
+}
+
+.title {
+    -fx-font-size: 21px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #0f5132;
+}
+
+.badge {
+    -fx-background-color: rgba(255, 255, 255, 0.8);
+    -fx-padding: 6 10 6 10;
+    -fx-background-radius: 8;
+    -fx-border-color: #b4ddc5;
+    -fx-border-radius: 8;
+}
+
+.kpi-card {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-background-radius: 10;
+    -fx-border-color: #c8dfd5;
+    -fx-border-radius: 10;
+}
+
+.card-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #3e5c53;
+}
+
+.card-value {
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #124734;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab {
+    -fx-background-color: rgba(255, 255, 255, 0.85);
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 8 14 8 14;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: #1f7a5a;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: white;
+    -fx-font-weight: 700;
+}
+
+.button {
+    -fx-background-color: #1f7a5a;
+    -fx-text-fill: white;
+    -fx-font-weight: 600;
+    -fx-background-radius: 8;
+}
+
+.button:hover {
+    -fx-background-color: #17644a;
+}

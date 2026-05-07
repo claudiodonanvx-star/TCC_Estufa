@@ -1,6 +1,7 @@
 package com.example.apiProjeto.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sensor_data")
@@ -14,6 +15,16 @@ public class SensorData {
     private float umidade;
     private Float umidadeSolo;
     private String significado;
+
+    @Column(name = "coletado_em", columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+    private LocalDateTime coletadoEm;
+
+    @PrePersist
+    public void prePersist() {
+        if (coletadoEm == null) {
+            coletadoEm = LocalDateTime.now();
+        }
+    }
 
     public SensorData() {}
 
@@ -38,5 +49,12 @@ public class SensorData {
     }
     public void setSignificado(String significado) {
         this.significado = significado;
+    }
+
+    public LocalDateTime getColetadoEm() {
+        return coletadoEm;
+    }
+    public void setColetadoEm(LocalDateTime coletadoEm) {
+        this.coletadoEm = coletadoEm;
     }
 }

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/iot/api_service.dart';
 import 'package:flutter_application_1/iot/SensorData.dart';
 import 'package:flutter_application_1/iot/Cultivo.dart';
+import 'package:flutter_application_1/iot/TelaAlertas.dart';
+import 'package:flutter_application_1/iot/TelaHistorico.dart';
 
 class TelaDados extends StatefulWidget {
   const TelaDados({super.key});
@@ -444,110 +446,385 @@ class _TelaDadosState extends State<TelaDados> {
   @override
   Widget build(BuildContext context) {
     final ultimo = _dados.isNotEmpty ? _dados.last : null;
+    final saude = _calcularSaude(_dados, _cultivoAtual);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Dados do Sensor'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: _mostrarDialogoDeIp,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: _mostrarMenuCultivo,
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0E7D63), Color(0xFF13A15D)],
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.local_florist,
-                      size: 18,
-                      color: Colors.white,
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('IoT - Estufa'),
+          backgroundColor: const Color(0xFF0E7D63),
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _mostrarDialogoDeIp,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: _mostrarMenuCultivo,
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0E7D63), Color(0xFF13A15D)],
                     ),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 120),
-                      child: Text(
-                        _cultivoAtual?.nome ?? 'Cultivo',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_florist,
+                          size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        child: Text(
+                          _cultivoAtual?.nome ?? 'Cultivo',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.expand_more,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      const Icon(Icons.expand_more,
+                          size: 18, color: Colors.white),
+                    ],
+                  ),
                 ),
               ),
+            ),
+          ],
+          bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(icon: Icon(Icons.sensors), text: 'Sensores'),
+              Tab(icon: Icon(Icons.warning_amber), text: 'Alertas'),
+              Tab(icon: Icon(Icons.show_chart), text: 'Histórico'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            // ── ABA 1: SENSORES ──────────────────────────────────────────
+            Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  color: Colors.grey.shade200,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.timer, size: 18),
+                      const SizedBox(width: 6),
+                      Text('Atualizando em $_contador segundos'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _carregando
+                      ? const Center(child: CircularProgressIndicator())
+                      : _erro != null
+                          ? Center(child: Text('Erro: $_erro'))
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                children: [
+                                  // Score de saúde
+                                  _buildScoreSaude(saude),
+                                  const SizedBox(height: 14),
+                                  // Cards de leitura com gauge
+                                  GridView.count(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    children: [
+                                      _buildGaugeCard(
+                                        '🌡️ Temperatura',
+                                        ultimo?.temperatura,
+                                        _cultivoAtual?.temperaturaMinima,
+                                        _cultivoAtual?.temperaturaMaxima,
+                                        '°C',
+                                        Colors.red.shade400,
+                                      ),
+                                      _buildGaugeCard(
+                                        '💧 Umidade',
+                                        ultimo?.umidade,
+                                        _cultivoAtual?.umidadeMinima,
+                                        _cultivoAtual?.umidadeMaxima,
+                                        '%',
+                                        Colors.blue.shade400,
+                                      ),
+                                      _buildGaugeCard(
+                                        '🌱 Umid. Solo',
+                                        ultimo?.umidadeSolo,
+                                        _cultivoAtual?.umidadeSoloMinima,
+                                        _cultivoAtual?.umidadeSoloMaxima,
+                                        '%',
+                                        Colors.brown.shade400,
+                                      ),
+                                      _buildCardComCor(
+                                        ultimo?.significado ?? '...',
+                                        _corDoSignificado(
+                                            ultimo?.significado),
+                                      ),
+                                    ],
+                                  ),
+                                  // Últimas leituras
+                                  if (_dados.length > 1) ...[
+                                    const SizedBox(height: 14),
+                                    _buildUltimasLeituras(),
+                                  ],
+                                ],
+                              ),
+                            ),
+                ),
+              ],
+            ),
+            // ── ABA 2: ALERTAS ───────────────────────────────────────────
+            ipAtual.isNotEmpty
+                ? TelaAlertas(ipAtual: ipAtual)
+                : const Center(
+                    child: Text('Configure o IP da API primeiro'),
+                  ),
+            // ── ABA 3: HISTÓRICO ─────────────────────────────────────────
+            ipAtual.isNotEmpty
+                ? TelaHistorico(ipAtual: ipAtual)
+                : const Center(
+                    child: Text('Configure o IP da API primeiro'),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Calcula % de leituras recentes dentro da faixa ideal do cultivo
+  double _calcularSaude(List<SensorData> dados, Cultivo? cultivo) {
+    if (cultivo == null || dados.isEmpty) return 0.0;
+    final ultimas = dados.length > 50 ? dados.sublist(dados.length - 50) : dados;
+    int ok = 0;
+    for (final d in ultimas) {
+      final tempOk = d.temperatura != null &&
+          d.temperatura! >= cultivo.temperaturaMinima &&
+          d.temperatura! <= cultivo.temperaturaMaxima;
+      final umidOk = d.umidade != null &&
+          d.umidade! >= cultivo.umidadeMinima &&
+          d.umidade! <= cultivo.umidadeMaxima;
+      final soloOk = d.umidadeSolo != null &&
+          d.umidadeSolo! >= cultivo.umidadeSoloMinima &&
+          d.umidadeSolo! <= cultivo.umidadeSoloMaxima;
+      if (tempOk && umidOk && soloOk) ok++;
+    }
+    return ok / ultimas.length * 100;
+  }
+
+  Widget _buildScoreSaude(double saude) {
+    final Color cor = saude >= 80
+        ? const Color(0xFF0E7D63)
+        : saude >= 50
+            ? const Color(0xFFB54708)
+            : const Color(0xFFB42318);
+    final String texto = saude >= 80
+        ? 'Ótimo'
+        : saude >= 50
+            ? 'Atenção'
+            : 'Crítico';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            height: 72,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: saude / 100,
+                  strokeWidth: 7,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(cor),
+                ),
+                Text(
+                  '${saude.toInt()}%',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: cor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Score de Saúde',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  texto,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: cor,
+                  ),
+                ),
+                Text(
+                  'Baseado nas últimas ${_dados.length > 50 ? 50 : _dados.length} leituras vs faixa ideal',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildGaugeCard(
+    String titulo,
+    double? valor,
+    double? min,
+    double? max,
+    String unidade,
+    Color cor,
+  ) {
+    final dentroFaixa = valor != null && min != null && max != null
+        ? valor >= min && valor <= max
+        : null;
+    final statusCor = dentroFaixa == null
+        ? Colors.grey
+        : dentroFaixa
+            ? const Color(0xFF0E7D63)
+            : const Color(0xFFB42318);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: EdgeInsets.all(12),
-            color: Colors.grey.shade200,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.timer, size: 20),
-                SizedBox(width: 8),
-                Text('Atualizando em $_contador segundos'),
-              ],
+          Text(
+            titulo,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          Text(
+            valor != null ? '${valor.toStringAsFixed(1)} $unidade' : '--',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: cor,
             ),
           ),
-          Expanded(
-            child:
-                _carregando
-                    ? Center(child: CircularProgressIndicator())
-                    : _erro != null
-                    ? Center(child: Text('Erro: $_erro'))
-                    : GridView.count(
-                      crossAxisCount: 2,
-                      padding: EdgeInsets.all(16),
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      children: [
-                        _buildCard(
-                          '🌡️ Temperatura',
-                          '${ultimo?.temperatura ?? '--'} °C',
-                        ),
-                        _buildCard(
-                          '💧 Umidade',
-                          '${ultimo?.umidade ?? '--'} %',
-                        ),
-                        _buildCard(
-                          '🌱 Solo',
-                          '${ultimo?.umidadeSolo ?? '--'} %',
-                        ),
-                        _buildCardComCor(
-                          ultimo?.significado ?? '...',
-                          _corDoSignificado(ultimo?.significado),
-                        ),
-                        _buildCard('🔲 Placeholder 3', '...'),
-                        _buildCard('🔲 Placeholder 4', '...'),
-                      ],
-                    ),
+          if (min != null && max != null)
+            Text(
+              'Faixa: ${min.toStringAsFixed(0)}–${max.toStringAsFixed(0)} $unidade',
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            ),
+          if (dentroFaixa != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  dentroFaixa ? Icons.check_circle : Icons.cancel,
+                  size: 14,
+                  color: statusCor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  dentroFaixa ? 'Ideal' : 'Fora da faixa',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: statusCor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUltimasLeituras() {
+    final ultimas = _dados.reversed.take(5).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Text(
+              'Últimas leituras',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          ...ultimas.map(
+            (d) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.sensors, size: 18,
+                  color: Color(0xFF0E7D63)),
+              title: Text(
+                '${d.temperatura?.toStringAsFixed(1) ?? '--'}°C  •  '
+                '${d.umidade?.toStringAsFixed(1) ?? '--'}%  •  '
+                'solo ${d.umidadeSolo?.toStringAsFixed(1) ?? '--'}%',
+                style: const TextStyle(fontSize: 12),
+              ),
+              subtitle: d.significado != null
+                  ? Text(d.significado!, style: const TextStyle(fontSize: 11))
+                  : null,
+            ),
           ),
         ],
       ),

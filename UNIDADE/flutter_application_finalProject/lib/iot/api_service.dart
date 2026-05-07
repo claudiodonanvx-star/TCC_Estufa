@@ -1,6 +1,8 @@
 import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/iot/SensorData.dart';
 import 'package:flutter_application_1/iot/Cultivo.dart';
+import 'package:flutter_application_1/iot/Alerta.dart';
+import 'package:flutter_application_1/iot/RelatorioDiario.dart';
 import 'dart:convert';
 
 Future<List<SensorData>> fetchDados(String ipAtual) async {
@@ -73,4 +75,66 @@ Future<void> habilitarCultivo(String ipAtual, int id) async {
   if (response.statusCode != 200) {
     throw Exception('Erro ao habilitar cultivo');
   }
+}
+
+Future<List<Alerta>> fetchAlertas(String ipAtual) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return [];
+
+  final response = await http.get(
+    Uri.parse('$ipAtual/api/alertas'),
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Accept': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((j) => Alerta.fromJson(j)).toList();
+  } else {
+    throw Exception('Erro ao carregar alertas');
+  }
+}
+
+/// periodo: 'semanal', 'mensal' ou 'anual'
+Future<List<RelatorioDiario>> fetchRelatorios(
+    String ipAtual, String periodo) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return [];
+
+  final response = await http.get(
+    Uri.parse('$ipAtual/api/relatorios/$periodo'),
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Accept': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((j) => RelatorioDiario.fromJson(j)).toList();
+  } else {
+    throw Exception('Erro ao carregar relatorios ($periodo)');
+  }
+}
+
+/// Retorna mapa com status, uptimeMinutos, totalLeituras, alertas24h
+Future<Map<String, dynamic>> fetchPingInfo(String ipAtual) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return {};
+
+  try {
+    final response = await http
+        .get(
+          Uri.parse('$ipAtual/api/ping'),
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+  } catch (_) {}
+  return {};
 }

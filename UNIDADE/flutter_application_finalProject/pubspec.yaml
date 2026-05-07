@@ -37,6 +37,7 @@ dependencies:
   marquee: ^2.3.0
   fading_edge_scrollview: ^4.1.1
   http: ^1.5.0
+  fl_chart: ^0.70.2
 
 dev_dependencies:
   flutter_test:

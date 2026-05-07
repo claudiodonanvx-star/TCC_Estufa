@@ -1,0 +1,79 @@
+IDEIAS DE EVOLUCAO - PROJETO ESTUFA SMART
+Data: 2026-03-30
+
+1) Alertas inteligentes em tempo real
+- Notificar por WhatsApp, e-mail ou push quando temperatura, umidade do ar ou umidade do solo sairem da faixa ideal.
+
+2) Recomendacao automatica de acao
+- Sugerir acao imediata com base no sensor.
+- Exemplo: ligar ventilacao, iniciar irrigacao por X minutos, reduzir luminosidade.
+
+3) Previsao com historico (IA simples)
+- Usar dados historicos para prever risco de estresse da planta nas proximas horas.
+- Antecipar correcao antes de ocorrer perda.
+
+4) Modo offline na unidade
+- Coleta local continua mesmo sem internet.
+- Sincronizar automaticamente quando conexao voltar.
+
+5) Indicador de saude por cultivo (score 0-100)
+- Combinar clima, umidade, manutencao e ocorrencias para gerar um indice unico.
+
+6) Dashboard executivo (financeiro + operacional)
+- Custo por unidade, adimplencia, produtividade estimada e ROI por cliente.
+
+7) Fluxo completo de manutencao
+- Ordem de servico, responsavel, prazo, checklist e registro com foto antes/depois.
+
+8) Relatorios automaticos semanais
+- Gerar PDF e enviar por e-mail com resumo de desempenho e alertas criticos.
+
+9) Controle de acesso por perfil
+- Perfis sugeridos: admin, tecnico, operador e cliente final.
+- Cada perfil com permissoes especificas.
+
+10) Qualidade de software e operacao
+- Testes automatizados.
+- Logs centralizados.
+- Monitoramento de falhas para reduzir indisponibilidade.
+
+Sugestao de priorizacao:
+- Fase 1: itens 1, 2, 4 e 8.
+- Fase 2: itens 5, 6 e 7.
+- Fase 3: itens 3, 9 e 10.
+
+PLANO DE IA (MESMO COM CIRCUITO INCOMPLETO)
+
+Objetivo da IA:
+- Prever risco de estresse da planta antes do problema acontecer.
+- Sugerir acao automatica (ex.: irrigar por X minutos).
+- Disparar alerta so quando a acao automatica nao resolver.
+
+Linguagem e arquitetura recomendada:
+- IA em Python (FastAPI + scikit-learn + pandas + xgboost).
+- API principal permanece em Java/Spring.
+- Integracao por HTTP: Java chama endpoint da IA para obter score e recomendacao.
+
+Como avancar antes de finalizar o circuito:
+1) Criar base de treino com dados simulados + dados reais ja disponiveis.
+2) Definir variaveis minimas:
+	- temperatura, umidade do ar, umidade do solo, horario, cultivo.
+3) Treinar modelo simples inicial (MVP):
+	- saida: score 0-100, classe (normal/atencao/critico), acao sugerida.
+4) Publicar servico de previsao (endpoint /predict).
+5) Integrar com o fluxo atual da API:
+	- solo seco -> irrigar;
+	- apos 5 min ainda seco -> alerta.
+6) Registrar log das decisoes para melhorar o modelo com o tempo.
+
+Dados minimos para IA ficar util:
+- Janela ideal: 2 a 4 semanas de leituras.
+- Frequencia sugerida: a cada 20s ou 1 min.
+- Rotulo simples para treino inicial:
+  "normalizou apos irrigacao" vs "nao normalizou apos irrigacao".
+
+Roadmap IA (quando circuito estiver 100% pronto):
+- Etapa 1: modelo baseline em Python e validacao offline.
+- Etapa 2: integracao com Java e decisao em tempo real.
+- Etapa 3: ajuste de limiares por cultivo e reducao de falso alerta.
+- Etapa 4: alerta WhatsApp com prioridade por severidade.
