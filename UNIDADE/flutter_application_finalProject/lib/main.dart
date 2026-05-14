@@ -52,12 +52,14 @@ class HomePage extends StatefulWidget {
   final String cpfLogado;
   final bool administrador;
   final int pendenciasAprovacao;
+  final int initialIndex;
 
   const HomePage({
     super.key,
     this.cpfLogado = '',
     this.administrador = false,
     this.pendenciasAprovacao = 0,
+    this.initialIndex = 5,
   });
 
   @override
@@ -75,6 +77,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _pendenciasAprovacao = widget.pendenciasAprovacao;
     _entries = _buildEntries();
+    _selectedIndex = widget.initialIndex.clamp(0, 6);
   }
 
   void _atualizarPendencias(int quantidade) {

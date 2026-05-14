@@ -1559,7 +1559,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) {
         return;
       }
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 700),
@@ -1570,6 +1570,7 @@ class _LoginScreenState extends State<LoginScreen>
                     _usuarioController.text.replaceAll(RegExp(r'\D'), ''),
                 administrador: sucesso.administrador,
                 pendenciasAprovacao: sucesso.pendenciasAprovacao,
+                initialIndex: 5,
               ),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(
@@ -1586,6 +1587,7 @@ class _LoginScreenState extends State<LoginScreen>
             );
           },
         ),
+        (route) => false,
       );
     } else {
       showDialog(

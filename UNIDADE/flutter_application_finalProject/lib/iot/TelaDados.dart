@@ -572,10 +572,43 @@ class _TelaDadosState extends State<TelaDados> {
                                         '%',
                                         Colors.brown.shade400,
                                       ),
-                                      _buildCardComCor(
-                                        ultimo?.significado ?? '...',
-                                        _corDoSignificado(
-                                            ultimo?.significado),
+                                      _buildFeatureCard(
+                                        titulo: 'CO2',
+                                        subtitulo: 'Sensor',
+                                        valor: 'Em breve',
+                                        icone: Icons.cloud,
+                                        cor: Colors.purple.shade400,
+                                        descricao: 'Sensor',
+                                      ),
+                                      _buildFeatureCard(
+                                        titulo: 'Cooler',
+                                        subtitulo: 'Relé',
+                                        valor: 'Aguardando',
+                                        icone: Icons.air,
+                                        cor: Colors.lightBlue.shade400,
+                                        onTap: () => _confirmarAcaoRele(
+                                          titulo: 'Cooler',
+                                        ),
+                                      ),
+                                      _buildFeatureCard(
+                                        titulo: 'Bomba',
+                                        subtitulo: 'Relé',
+                                        valor: 'Aguardando',
+                                        icone: Icons.water_drop,
+                                        cor: Colors.blue.shade400,
+                                        onTap: () => _confirmarAcaoRele(
+                                          titulo: 'Bomba',
+                                        ),
+                                      ),
+                                      _buildFeatureCard(
+                                        titulo: 'Aquecimento',
+                                        subtitulo: 'Relé',
+                                        valor: 'A definir',
+                                        icone: Icons.local_fire_department,
+                                        cor: Colors.orange.shade400,
+                                        onTap: () => _confirmarAcaoRele(
+                                          titulo: 'Aquecimento',
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -784,6 +817,141 @@ class _TelaDadosState extends State<TelaDados> {
         ],
       ),
     );
+  }
+
+  Widget _buildFeatureCard({
+    required String titulo,
+    required String subtitulo,
+    required String valor,
+    required IconData icone,
+    required Color cor,
+    String? descricao,
+    VoidCallback? onTap,
+  }) {
+    final card = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                titulo,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  subtitulo,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: cor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: cor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icone, size: 28, color: cor),
+          ),
+          Text(
+            valor,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: cor,
+            ),
+          ),
+          if (descricao != null)
+            Text(
+              descricao,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          Text(
+            onTap != null ? 'Toque para ativar' : 'Visual apenas',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return card;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: card,
+      ),
+    );
+  }
+
+  Future<void> _confirmarAcaoRele({
+    required String titulo,
+  }) async {
+    final ativar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Ativar $titulo?'),
+        content: Text(
+          'Você gostaria de ativar o funcionamento do relé "$titulo"?\n\n'
+          'Por enquanto esta ação é apenas visual no mobile.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Ativar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ativar == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ativação do relé "$titulo" solicitada.'),
+        ),
+      );
+    }
   }
 
   Widget _buildUltimasLeituras() {
