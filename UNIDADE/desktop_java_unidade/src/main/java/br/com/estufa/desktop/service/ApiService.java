@@ -17,12 +17,14 @@ import java.time.Duration;
 import java.util.List;
 
 public class ApiService {
+    private static final String DEFAULT_BASE_URL = "https://tcc-estufa.onrender.com";
+
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String baseUrl;
 
     public ApiService() {
-        this.baseUrl = System.getProperty("estufa.api.baseUrl", "http://localhost:8080");
+        this.baseUrl = System.getProperty("estufa.api.baseUrl", DEFAULT_BASE_URL);
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();

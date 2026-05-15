@@ -17,12 +17,12 @@ gradle run
 
 ## Configurar URL da API
 
-Por padrao o app usa `http://localhost:8080`.
+Por padrao o app usa `https://tcc-estufa.onrender.com`.
 
 Para alterar:
 
 ```powershell
-gradle run -Destufa.api.baseUrl=http://SEU_IP:8080
+gradle run -Destufa.api.baseUrl=https://SUA_API
 ```
 
 ## Funcionalidades

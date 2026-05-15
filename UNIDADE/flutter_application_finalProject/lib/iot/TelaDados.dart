@@ -138,7 +138,7 @@ class _TelaDadosState extends State<TelaDados> {
                     TextField(
                       controller: ipController,
                       decoration: InputDecoration(
-                        hintText: 'https://seuip.ngrok-free.app',
+                        hintText: 'https://tcc-estufa.onrender.com',
                       ),
                     ),
                     SizedBox(height: 12),

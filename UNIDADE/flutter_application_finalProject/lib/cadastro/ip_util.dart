@@ -1,9 +1,7 @@
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_application_1/cadastro/api_service.dart';
 
 class IpUtil {
-  static const String fallbackNgrok =
-      'https://uncouth-oxidation-magnolia.ngrok-free.dev';
+  static const String hostedApiUrl = 'https://tcc-estufa.onrender.com';
 
   static Future<String?> carregarIp() async {
     for (final caminho in ['assets/IPAPI/ipexterno.txt', 'assets/ipexterno.txt']) {
@@ -11,20 +9,16 @@ class IpUtil {
         final conteudo = await rootBundle.loadString(caminho);
         final normalizado = _normalizarBaseUrl(conteudo);
         if (normalizado != null) {
-          if (await _precisaFallback(normalizado)) {
-            return fallbackNgrok;
-          }
+          final ehLocal = normalizado.contains('localhost') ||
+              normalizado.contains('127.0.0.1');
+          if (ehLocal) return hostedApiUrl;
           return normalizado;
         }
       } catch (_) {}
     }
 
-    if (await ApiService.testarConexao(fallbackNgrok)) {
-      return fallbackNgrok;
-    }
-
     print('⚠️ Erro ao ler IP do asset: nenhum caminho válido encontrado');
-    return fallbackNgrok;
+    return hostedApiUrl;
   }
 
   static String? _normalizarBaseUrl(String valor) {
@@ -40,16 +34,5 @@ class IpUtil {
     }
 
     return ip;
-  }
-
-  static Future<bool> _precisaFallback(String baseUrl) async {
-    final ehLocal =
-        baseUrl.contains('localhost') || baseUrl.contains('127.0.0.1');
-    if (!ehLocal) return false;
-
-    final ok = await ApiService.testarConexao(baseUrl);
-    if (ok) return false;
-
-    return true;
   }
 }
