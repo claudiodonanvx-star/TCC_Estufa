@@ -1,0 +1,7 @@
+.git
+.gitignore
+.gradle
+build
+bin
+**/.DS_Store
+**/Thumbs.db
