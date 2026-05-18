@@ -26,7 +26,11 @@ class IpUtil {
     if (ip.isEmpty) return null;
 
     if (!ip.startsWith('http://') && !ip.startsWith('https://')) {
-      ip = 'http://$ip';
+      if (ip.startsWith('localhost') || ip.startsWith('127.0.0.1')) {
+        ip = 'http://$ip';
+      } else {
+        ip = 'https://$ip';
+      }
     }
 
     if (ip.endsWith('/')) {

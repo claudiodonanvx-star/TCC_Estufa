@@ -2,6 +2,7 @@
 
 # Build outputs
 **/build/
+**/bin/
 
 # IDE/tooling
 **/.idea/

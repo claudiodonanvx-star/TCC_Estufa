@@ -22,7 +22,11 @@ class ApiService {
   static String _normalizarBaseUrl(String ip) {
     var base = ip.trim();
     if (!base.startsWith('http://') && !base.startsWith('https://')) {
-      base = 'http://$base';
+      if (base.startsWith('localhost') || base.startsWith('127.0.0.1')) {
+        base = 'http://$base';
+      } else {
+        base = 'https://$base';
+      }
     }
     if (base.endsWith('/')) {
       base = base.substring(0, base.length - 1);

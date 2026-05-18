@@ -1,5 +1,8 @@
 package br.com.estufa.desktop.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SensorData {
     private Long id;
     private float temperatura;
