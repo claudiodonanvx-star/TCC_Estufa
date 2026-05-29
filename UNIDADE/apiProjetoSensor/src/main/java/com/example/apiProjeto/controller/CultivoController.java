@@ -25,6 +25,12 @@ public class CultivoController {
         return cultivoRepository.findAll();
     }
 
+    @PostMapping("/cultivos")
+    public Cultivo criarCultivo(@RequestBody Cultivo cultivo) {
+        cultivo.setHabilitada(false);
+        return cultivoRepository.save(cultivo);
+    }
+
     @PutMapping("/cultivos/{id}/habilitar")
     public String habilitarCultivo(@PathVariable Long id) {
         List<Cultivo> todos = cultivoRepository.findAll();

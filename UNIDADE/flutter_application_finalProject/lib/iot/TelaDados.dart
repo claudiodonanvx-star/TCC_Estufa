@@ -7,6 +7,7 @@ import 'package:flutter_application_1/iot/SensorData.dart';
 import 'package:flutter_application_1/iot/Cultivo.dart';
 import 'package:flutter_application_1/iot/TelaAlertas.dart';
 import 'package:flutter_application_1/iot/TelaHistorico.dart';
+import 'package:flutter_application_1/iot/notification_service.dart';
 
 class TelaDados extends StatefulWidget {
   const TelaDados({super.key});
@@ -21,16 +22,21 @@ class _TelaDadosState extends State<TelaDados> {
   bool _carregando = true;
   String? _erro;
   Timer? _timer;
+  Timer? _timerKeepAlive;
   int _contador = 20;
 
   Cultivo? _cultivoAtual;
   List<Cultivo> _cultivosDisponiveis = [];
+  final Map<String, DateTime> _ultimaNotificacao = {};
+  final Duration _notificacaoCooldown = const Duration(minutes: 30);
 
   @override
   void initState() {
     super.initState();
+    NotificationService.initialize();
     _carregarIpAutomaticamente();
     _iniciarAtualizacaoAutomatica();
+    _iniciarKeepAlive();
   }
 
   Future<void> _carregarIpAutomaticamente() async {
@@ -64,6 +70,19 @@ class _TelaDadosState extends State<TelaDados> {
     });
   }
 
+  void _iniciarKeepAlive() {
+    // Faz ping a cada 15 minutos para manter a API acordada no Render
+    _timerKeepAlive = Timer.periodic(const Duration(minutes: 15), (timer) {
+      if (ipAtual.isNotEmpty && ipAtual.startsWith('http')) {
+        pingApiKeepAlive(ipAtual).then((_) {
+          print('✅ Keep-alive: API respondeu');
+        }).catchError((e) {
+          print('⚠️ Keep-alive falhou: $e');
+        });
+      }
+    });
+  }
+
   Future<void> _buscarDados() async {
     if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return;
     try {
@@ -74,6 +93,7 @@ class _TelaDadosState extends State<TelaDados> {
           _carregando = false;
           _erro = null;
         });
+        await _avaliarNotificacoesPreditivas();
       } else {
         throw Exception('Sem dados válidos');
       }
@@ -118,6 +138,217 @@ class _TelaDadosState extends State<TelaDados> {
     } catch (e) {
       print('Erro ao alterar cultivo: $e');
     }
+  }
+
+  bool _podeNotificar(String chave) {
+    final ultima = _ultimaNotificacao[chave];
+    return ultima == null || DateTime.now().difference(ultima) > _notificacaoCooldown;
+  }
+
+  void _registrarNotificacao(String chave) {
+    _ultimaNotificacao[chave] = DateTime.now();
+  }
+
+  Future<void> _avaliarNotificacoesPreditivas() async {
+    if (_cultivoAtual == null || _dados.isEmpty) return;
+
+    final ultimo = _dados.last;
+    if (ultimo.temperatura == null || ultimo.umidadeSolo == null) return;
+
+    final temp = ultimo.temperatura!;
+    final solo = ultimo.umidadeSolo!;
+    final cultivo = _cultivoAtual!;
+
+    const margemPercentual = 0.12;
+    final tempMargin = (cultivo.temperaturaMaxima - cultivo.temperaturaMinima) * margemPercentual;
+    final soloMargin = (cultivo.umidadeSoloMaxima - cultivo.umidadeSoloMinima) * margemPercentual;
+
+    final tempProximaLimite = (temp - cultivo.temperaturaMinima).abs() <= tempMargin ||
+        (cultivo.temperaturaMaxima - temp).abs() <= tempMargin;
+    final soloProximoLimite = (solo - cultivo.umidadeSoloMinima).abs() <= soloMargin ||
+        (cultivo.umidadeSoloMaxima - solo).abs() <= soloMargin;
+
+    if (tempProximaLimite && _podeNotificar('TEMPERATURA')) {
+      _registrarNotificacao('TEMPERATURA');
+      await NotificationService.showNotification(
+        id: 1,
+        title: 'Temperatura em atenção',
+        body: 'A temperatura da estufa está próxima dos limites para ${cultivo.nome}. Verifique o controle térmico.',
+      );
+    }
+
+    if (soloProximoLimite && _podeNotificar('SOLO')) {
+      _registrarNotificacao('SOLO');
+      await NotificationService.showNotification(
+        id: 2,
+        title: 'Umidade do solo em atenção',
+        body: 'A umidade do solo está próxima dos limites para ${cultivo.nome}. Cheque irrigação ou drenagem.',
+      );
+    }
+  }
+
+  Future<void> _mostrarFormularioCadastroCultivo() async {
+    final nomeController = TextEditingController();
+    final tipoController = TextEditingController();
+    final temperaturaMinimaController = TextEditingController();
+    final temperaturaMaximaController = TextEditingController();
+    final umidadeMinimaController = TextEditingController();
+    final umidadeMaximaController = TextEditingController();
+    final umidadeSoloMinimaController = TextEditingController();
+    final umidadeSoloMaximaController = TextEditingController();
+    String? errorMessage;
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Cadastrar nova planta'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nomeController,
+                      decoration: const InputDecoration(labelText: 'Nome'),
+                    ),
+                    TextField(
+                      controller: tipoController,
+                      decoration: const InputDecoration(labelText: 'Tipo'),
+                    ),
+                    TextField(
+                      controller: temperaturaMinimaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Temp. mínima (°C)'),
+                    ),
+                    TextField(
+                      controller: temperaturaMaximaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Temp. máxima (°C)'),
+                    ),
+                    TextField(
+                      controller: umidadeMinimaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Umidade mínima (%)'),
+                    ),
+                    TextField(
+                      controller: umidadeMaximaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Umidade máxima (%)'),
+                    ),
+                    TextField(
+                      controller: umidadeSoloMinimaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Umidade do solo mínima (%)'),
+                    ),
+                    TextField(
+                      controller: umidadeSoloMaximaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Umidade do solo máxima (%)'),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final nome = nomeController.text.trim();
+                          final tipo = tipoController.text.trim();
+                          final temperaturaMinima = double.tryParse(
+                              temperaturaMinimaController.text.replaceAll(',', '.'));
+                          final temperaturaMaxima = double.tryParse(
+                              temperaturaMaximaController.text.replaceAll(',', '.'));
+                          final umidadeMinima = double.tryParse(
+                              umidadeMinimaController.text.replaceAll(',', '.'));
+                          final umidadeMaxima = double.tryParse(
+                              umidadeMaximaController.text.replaceAll(',', '.'));
+                          final umidadeSoloMinima = double.tryParse(
+                              umidadeSoloMinimaController.text.replaceAll(',', '.'));
+                          final umidadeSoloMaxima = double.tryParse(
+                              umidadeSoloMaximaController.text.replaceAll(',', '.'));
+
+                          if (nome.isEmpty || tipo.isEmpty) {
+                            setState(() {
+                              errorMessage = 'Nome e tipo são obrigatórios.';
+                            });
+                            return;
+                          }
+
+                          if ([
+                                temperaturaMinima,
+                                temperaturaMaxima,
+                                umidadeMinima,
+                                umidadeMaxima,
+                                umidadeSoloMinima,
+                                umidadeSoloMaxima,
+                              ].contains(null)) {
+                            setState(() {
+                              errorMessage =
+                                  'Informe valores numéricos válidos para todos os parâmetros.';
+                            });
+                            return;
+                          }
+
+                          setState(() {
+                            isSubmitting = true;
+                            errorMessage = null;
+                          });
+
+                          try {
+                            await criarCultivo(ipAtual, {
+                              'nome': nome,
+                              'tipo': tipo,
+                              'temperaturaMinima': temperaturaMinima,
+                              'temperaturaMaxima': temperaturaMaxima,
+                              'umidadeMinima': umidadeMinima,
+                              'umidadeMaxima': umidadeMaxima,
+                              'umidadeSoloMinima': umidadeSoloMinima,
+                              'umidadeSoloMaxima': umidadeSoloMaxima,
+                            });
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Planta cadastrada com sucesso.')),
+                              );
+                              await _buscarCultivosDisponiveis();
+                            }
+                          } catch (e) {
+                            setState(() {
+                              errorMessage = 'Falha ao cadastrar planta: $e';
+                            });
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                isSubmitting = false;
+                              });
+                            }
+                          }
+                        },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _mostrarDialogoDeIp() {
@@ -360,6 +591,18 @@ class _TelaDadosState extends State<TelaDados> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: _mostrarFormularioCadastroCultivo,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Cadastrar nova planta'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0E7D63),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
@@ -440,6 +683,7 @@ class _TelaDadosState extends State<TelaDados> {
   @override
   void dispose() {
     _timer?.cancel();
+    _timerKeepAlive?.cancel();
     super.dispose();
   }
 

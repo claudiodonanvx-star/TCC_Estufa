@@ -77,6 +77,28 @@ Future<void> habilitarCultivo(String ipAtual, int id) async {
   }
 }
 
+Future<Cultivo> criarCultivo(String ipAtual, Map<String, dynamic> cultivoDados) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) {
+    throw Exception('IP inválido para criar cultivo');
+  }
+
+  final response = await http.post(
+    Uri.parse('$ipAtual/api/cultivos'),
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: json.encode(cultivoDados),
+  );
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return Cultivo.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Erro ao criar cultivo: ${response.statusCode}');
+  }
+}
+
 Future<List<Alerta>> fetchAlertas(String ipAtual) async {
   if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return [];
 
@@ -137,4 +159,24 @@ Future<Map<String, dynamic>> fetchPingInfo(String ipAtual) async {
     }
   } catch (_) {}
   return {};
+}
+
+/// Keep-alive: faz ping silencioso para manter a API acordada no Render.
+/// Não lança exceção se falhar — apenas mantém a API respondendo.
+Future<void> pingApiKeepAlive(String ipAtual) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return;
+
+  try {
+    await http
+        .get(
+          Uri.parse('$ipAtual/api/health'),
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 5));
+  } catch (_) {
+    // Silencio falhas — esta é uma chamada de manutenção
+  }
 }
