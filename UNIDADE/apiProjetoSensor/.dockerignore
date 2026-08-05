@@ -3,5 +3,6 @@
 .gradle
 build
 bin
+render/app.jar
 **/.DS_Store
 **/Thumbs.db

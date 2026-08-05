@@ -27,8 +27,25 @@ public class CultivoController {
 
     @PostMapping("/cultivos")
     public Cultivo criarCultivo(@RequestBody Cultivo cultivo) {
+        System.out.println("🌱 POST /api/cultivos recebido");
+        System.out.println("   Nome: " + cultivo.getNome());
+        System.out.println("   Tipo: " + cultivo.getTipo());
+        System.out.println("   Temp: " + cultivo.getTemperaturaMinima() + "°C - " + cultivo.getTemperaturaMaxima() + "°C");
+        System.out.println("   Umidade: " + cultivo.getUmidadeMinima() + "% - " + cultivo.getUmidadeMaxima() + "%");
+        System.out.println("   Solo: " + cultivo.getUmidadeSoloMinima() + "% - " + cultivo.getUmidadeSoloMaxima() + "%");
+        
+        // Validação básica
+        if (cultivo.getNome() == null || cultivo.getNome().trim().isEmpty()) {
+            throw new IllegalArgumentException("Nome do cultivo é obrigatório");
+        }
+        if (cultivo.getTipo() == null || cultivo.getTipo().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tipo do cultivo é obrigatório");
+        }
+        
         cultivo.setHabilitada(false);
-        return cultivoRepository.save(cultivo);
+        Cultivo salvo = cultivoRepository.save(cultivo);
+        System.out.println("✅ Cultivo criado com ID: " + salvo.getId());
+        return salvo;
     }
 
     @PutMapping("/cultivos/{id}/habilitar")

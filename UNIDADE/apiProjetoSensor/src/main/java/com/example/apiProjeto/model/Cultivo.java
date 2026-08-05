@@ -23,6 +23,25 @@ public class Cultivo {
     private float umidadeSoloMaxima;
     private boolean habilitada;
 
+    // Construtor vazio (necessário para desserialização JSON)
+    public Cultivo() {
+    }
+
+    // Construtor com parâmetros (conveniente)
+    public Cultivo(String nome, String tipo, float temperaturaMinima, float temperaturaMaxima,
+                   float umidadeMinima, float umidadeMaxima, float umidadeSoloMinima,
+                   float umidadeSoloMaxima) {
+        this.nome = nome;
+        this.tipo = tipo;
+        this.temperaturaMinima = temperaturaMinima;
+        this.temperaturaMaxima = temperaturaMaxima;
+        this.umidadeMinima = umidadeMinima;
+        this.umidadeMaxima = umidadeMaxima;
+        this.umidadeSoloMinima = umidadeSoloMinima;
+        this.umidadeSoloMaxima = umidadeSoloMaxima;
+        this.habilitada = false;
+    }
+
     public Long getId() {
         return id;
     }

@@ -30,10 +30,11 @@ public class HealthController {
     }
 
     /**
-     * Alias para /health - mais curto para ping frequente.
+     * Ping alternativo para health checks. Não usa `/api/ping` para evitar
+     * conflito com `SensorController#ping()` que fornece métricas extensas.
      */
-    @GetMapping("/ping")
-    public Map<String, Object> ping() {
+    @GetMapping("/health/ping")
+    public Map<String, Object> pingAlternative() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "OK");
         response.put("timestamp", LocalDateTime.now());
