@@ -352,86 +352,144 @@ class _TelaDadosState extends State<TelaDados> {
   }
 
   void _mostrarDialogoDeIp() {
-    final ipController = TextEditingController(text: ipAtual);
+    final ipController = TextEditingController(
+      text: ipAtual.isNotEmpty ? ipAtual : 'https://api-estufa.onrender.com',
+    );
+    String modoApi = ipAtual.contains('localhost') || ipAtual.contains('127.0.0.1')
+        ? 'local'
+        : 'hospedada';
     bool conexaoOk = false;
     String? mensagemTeste;
+
+    String resolverUrl(String valor, String tipo) {
+      var base = valor.trim();
+      if (base.isEmpty) {
+        return tipo == 'local' ? 'http://localhost:8080' : 'https://api-estufa.onrender.com';
+      }
+
+      if (!base.startsWith('http://') && !base.startsWith('https://')) {
+        base = tipo == 'local' ? 'http://$base' : 'https://$base';
+      }
+
+      if (base.endsWith('/')) {
+        base = base.substring(0, base.length - 1);
+      }
+
+      return base;
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder:
-              (context, setState) => AlertDialog(
-                title: Text('Configurar IP da API'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: ipController,
-                      decoration: InputDecoration(
-                        hintText: 'https://tcc-estufa.onrender.com',
-                      ),
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Configurar API da estufa'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: modoApi,
+                  decoration: const InputDecoration(labelText: 'Origem da API'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'hospedada',
+                      child: Text('Hospedada (Render)'),
                     ),
-                    SizedBox(height: 12),
-                    if (mensagemTeste != null)
-                      Text(
-                        mensagemTeste!,
-                        style: TextStyle(
-                          color: conexaoOk ? Colors.green : Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    DropdownMenuItem(
+                      value: 'local',
+                      child: Text('Local (localhost)'),
+                    ),
                   ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('Cancelar'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final ipTeste = ipController.text.trim();
-                      try {
-                        final dados = await fetchDados(ipTeste);
-                        if (dados.isNotEmpty &&
-                            // ignore: unnecessary_type_check, unnecessary_null_comparison
-                            dados.every(
-                              // ignore: unnecessary_type_check
-                              (d) => d is SensorData && d.temperatura != null,
-                            )) {
-                          setState(() {
-                            conexaoOk = true;
-                            mensagemTeste = '✅ Conexão bem-sucedida!';
-                          });
-                        } else {
-                          throw Exception('Resposta inválida');
+                  onChanged: (valor) {
+                    if (valor != null) {
+                      setDialogState(() {
+                        modoApi = valor;
+                        if (valor == 'local' && ipController.text.isEmpty) {
+                          ipController.text = 'http://localhost:8080';
+                        } else if (valor == 'hospedada' && ipController.text.isEmpty) {
+                          ipController.text = 'https://api-estufa.onrender.com';
                         }
-                      } catch (e) {
-                        setState(() {
-                          conexaoOk = false;
-                          mensagemTeste = '❌ Falha na conexão';
-                        });
-                      }
-                    },
-                    child: Text('Testar conexão'),
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ipController,
+                  decoration: InputDecoration(
+                    labelText: modoApi == 'local' ? 'URL local' : 'URL hospedada',
+                    hintText: modoApi == 'local'
+                        ? 'http://localhost:8080'
+                        : 'https://api-estufa.onrender.com',
                   ),
-                  ElevatedButton(
-                    onPressed:
-                        conexaoOk
-                            ? () {
-                              setState(() {
-                                ipAtual = ipController.text.trim();
-                                _contador = 20;
-                              });
-                              _buscarDados();
-                              _buscarCultivoAtual();
-                              Navigator.pop(context);
-                            }
-                            : null,
-                    child: Text('Salvar'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  modoApi == 'local'
+                      ? 'Use essa opção quando a API estiver rodando na sua máquina.'
+                      : 'Use essa opção para a API pública hospedada no Render.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                if (mensagemTeste != null)
+                  Text(
+                    mensagemTeste!,
+                    style: TextStyle(
+                      color: conexaoOk ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
               ),
+              TextButton(
+                onPressed: () async {
+                  final urlTeste = resolverUrl(ipController.text, modoApi);
+                  try {
+                    final dados = await fetchDados(urlTeste);
+                    if (dados.isNotEmpty &&
+                        // ignore: unnecessary_type_check, unnecessary_null_comparison
+                        dados.every(
+                          // ignore: unnecessary_type_check
+                          (d) => d is SensorData && d.temperatura != null,
+                        )) {
+                      setDialogState(() {
+                        conexaoOk = true;
+                        mensagemTeste = '✅ Conexão bem-sucedida!';
+                      });
+                    } else {
+                      throw Exception('Resposta inválida');
+                    }
+                  } catch (e) {
+                    setDialogState(() {
+                      conexaoOk = false;
+                      mensagemTeste = '❌ Falha na conexão';
+                    });
+                  }
+                },
+                child: const Text('Testar conexão'),
+              ),
+              ElevatedButton(
+                onPressed: conexaoOk
+                    ? () {
+                        final urlFinal = resolverUrl(ipController.text, modoApi);
+                        this.setState(() {
+                          ipAtual = urlFinal;
+                          _contador = 20;
+                        });
+                        _buscarDados();
+                        _buscarCultivoAtual();
+                        Navigator.pop(context);
+                      }
+                    : null,
+                child: const Text('Salvar'),
+              ),
+            ],
+          ),
         );
       },
     );

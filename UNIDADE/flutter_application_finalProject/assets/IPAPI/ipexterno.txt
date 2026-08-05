@@ -1,1 +1,1 @@
-https://tcc-estufa.onrender.com
+https://api-estufa.onrender.com

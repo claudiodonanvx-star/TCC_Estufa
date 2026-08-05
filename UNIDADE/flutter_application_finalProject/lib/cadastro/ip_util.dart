@@ -1,9 +1,18 @@
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_application_1/cadastro/api_settings.dart';
 
 class IpUtil {
-  static const String hostedApiUrl = 'https://tcc-estufa.onrender.com';
+  static const String hostedApiUrl = 'https://api-estufa.onrender.com';
 
   static Future<String?> carregarIp() async {
+    // Primeiro, tenta carregar a URL salva nas configurações
+    final urlSalva = await ApiSettings.obterUrlApi();
+    if (urlSalva != hostedApiUrl) {
+      // Se há uma URL customizada salva, usa ela
+      return urlSalva;
+    }
+
+    // Caso contrário, tenta carregar do arquivo de assets
     for (final caminho in ['assets/IPAPI/ipexterno.txt', 'assets/ipexterno.txt']) {
       try {
         final conteudo = await rootBundle.loadString(caminho);

@@ -17,7 +17,7 @@ import java.time.Duration;
 import java.util.List;
 
 public class ApiService {
-    private static final String DEFAULT_BASE_URL = "https://tcc-estufa.onrender.com";
+    private static final String DEFAULT_BASE_URL = "https://api-estufa.onrender.com";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
