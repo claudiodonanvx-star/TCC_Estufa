@@ -5,6 +5,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "cultivos")
@@ -13,14 +16,36 @@ public class Cultivo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Nome do cultivo é obrigatório")
     private String nome;
+
+    @NotBlank(message = "Tipo do cultivo é obrigatório")
     private String tipo;
-    private float temperaturaMinima;
-    private float temperaturaMaxima;
-    private float umidadeMinima;
-    private float umidadeMaxima;
-    private float umidadeSoloMinima;
-    private float umidadeSoloMaxima;
+
+    @NotNull(message = "A temperatura mínima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A temperatura mínima deve ser maior ou igual a 0")
+    private Float temperaturaMinima;
+
+    @NotNull(message = "A temperatura máxima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A temperatura máxima deve ser maior ou igual a 0")
+    private Float temperaturaMaxima;
+
+    @NotNull(message = "A umidade mínima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A umidade mínima deve ser maior ou igual a 0")
+    private Float umidadeMinima;
+
+    @NotNull(message = "A umidade máxima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A umidade máxima deve ser maior ou igual a 0")
+    private Float umidadeMaxima;
+
+    @NotNull(message = "A umidade do solo mínima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A umidade do solo mínima deve ser maior ou igual a 0")
+    private Float umidadeSoloMinima;
+
+    @NotNull(message = "A umidade do solo máxima é obrigatória")
+    @DecimalMin(value = "0.0", inclusive = true, message = "A umidade do solo máxima deve ser maior ou igual a 0")
+    private Float umidadeSoloMaxima;
+
     private boolean habilitada;
 
     // Construtor vazio (necessário para desserialização JSON)
@@ -28,9 +53,9 @@ public class Cultivo {
     }
 
     // Construtor com parâmetros (conveniente)
-    public Cultivo(String nome, String tipo, float temperaturaMinima, float temperaturaMaxima,
-                   float umidadeMinima, float umidadeMaxima, float umidadeSoloMinima,
-                   float umidadeSoloMaxima) {
+    public Cultivo(String nome, String tipo, Float temperaturaMinima, Float temperaturaMaxima,
+                   Float umidadeMinima, Float umidadeMaxima, Float umidadeSoloMinima,
+                   Float umidadeSoloMaxima) {
         this.nome = nome;
         this.tipo = tipo;
         this.temperaturaMinima = temperaturaMinima;
@@ -66,51 +91,51 @@ public class Cultivo {
         this.tipo = tipo;
     }
 
-    public float getTemperaturaMinima() {
+    public Float getTemperaturaMinima() {
         return temperaturaMinima;
     }
 
-    public void setTemperaturaMinima(float temperaturaMinima) {
+    public void setTemperaturaMinima(Float temperaturaMinima) {
         this.temperaturaMinima = temperaturaMinima;
     }
 
-    public float getTemperaturaMaxima() {
+    public Float getTemperaturaMaxima() {
         return temperaturaMaxima;
     }
 
-    public void setTemperaturaMaxima(float temperaturaMaxima) {
+    public void setTemperaturaMaxima(Float temperaturaMaxima) {
         this.temperaturaMaxima = temperaturaMaxima;
     }
 
-    public float getUmidadeMinima() {
+    public Float getUmidadeMinima() {
         return umidadeMinima;
     }
 
-    public void setUmidadeMinima(float umidadeMinima) {
+    public void setUmidadeMinima(Float umidadeMinima) {
         this.umidadeMinima = umidadeMinima;
     }
 
-    public float getUmidadeMaxima() {
+    public Float getUmidadeMaxima() {
         return umidadeMaxima;
     }
 
-    public void setUmidadeMaxima(float umidadeMaxima) {
+    public void setUmidadeMaxima(Float umidadeMaxima) {
         this.umidadeMaxima = umidadeMaxima;
     }
 
-    public float getUmidadeSoloMinima() {
+    public Float getUmidadeSoloMinima() {
         return umidadeSoloMinima;
     }
 
-    public void setUmidadeSoloMinima(float umidadeSoloMinima) {
+    public void setUmidadeSoloMinima(Float umidadeSoloMinima) {
         this.umidadeSoloMinima = umidadeSoloMinima;
     }
 
-    public float getUmidadeSoloMaxima() {
+    public Float getUmidadeSoloMaxima() {
         return umidadeSoloMaxima;
     }
 
-    public void setUmidadeSoloMaxima(float umidadeSoloMaxima) {
+    public void setUmidadeSoloMaxima(Float umidadeSoloMaxima) {
         this.umidadeSoloMaxima = umidadeSoloMaxima;
     }
 

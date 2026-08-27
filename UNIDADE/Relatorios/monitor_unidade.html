@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unidade Estufa - Monitor Serial & Logs da API</title>
+  <link rel="stylesheet" href="monitor_unidade.css" />
+  <script src="monitor_unidade.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="logo_colorido.png" alt="Estufa Smart" />
+        <div>
+          <strong>Unidade Estufa</strong>
+          <span>Monitor de hardware e backend</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="tab-button active" data-tab="serial">Monitor Serial</button>
+        <button class="tab-button" data-tab="api">Logs da API</button>
+      </nav>
+
+      <section class="panel config-panel">
+        <h2>Configuração</h2>
+        <label for="api-base-url">API Base</label>
+        <input id="api-base-url" type="text" placeholder="http://localhost:8080" />
+        <div class="form-actions">
+          <button id="btn-save-url" class="primary">Salvar</button>
+          <button id="btn-reset-url">Resetar</button>
+        </div>
+        <p class="helper">Use este endereço quando a unidade estiver conectada ao servidor local.</p>
+      </section>
+
+      <section class="panel status-panel">
+        <h2>Saúde da Unidade</h2>
+        <div class="status-item">
+          <span>Status</span>
+          <strong id="overall-status">Carregando...</strong>
+        </div>
+        <div class="status-item">
+          <span>Última atualização</span>
+          <strong id="last-updated">--</strong>
+        </div>
+        <div class="status-item">
+          <span>Pendências</span>
+          <strong id="pending-issues">--</strong>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div>
+          <h1>Monitor da Unidade</h1>
+          <p>Visão integrada de problemas físicos, comunicação serial e logs da API.</p>
+        </div>
+        <div class="header-actions">
+          <button id="btn-refresh">Atualizar</button>
+          <span id="api-link" class="api-link">API: <strong>http://localhost:8080</strong></span>
+        </div>
+      </header>
+
+      <section class="cards-grid">
+        <article class="card" id="card-serial-status">
+          <h3>Serial / Hardware</h3>
+          <p class="card-value" id="serial-status">--</p>
+          <p class="card-footnote">Verifica o fluxo de leitura e a saúde dos sensores.</p>
+        </article>
+        <article class="card" id="card-api-status">
+          <h3>API</h3>
+          <p class="card-value" id="api-status">--</p>
+          <p class="card-footnote">Ping, tempo de resposta e alertas de backend.</p>
+        </article>
+        <article class="card" id="card-problems">
+          <h3>Problemas Ativos</h3>
+          <p class="card-value" id="active-issues">--</p>
+          <p class="card-footnote">Erros críticos e alertas recentes.</p>
+        </article>
+        <article class="card" id="card-predictive">
+          <h3>Risco Futuro</h3>
+          <p class="card-value" id="risk-score">--</p>
+          <p class="card-footnote">Avaliando quebrados, queda de bateria e falhas esperadas.</p>
+        </article>
+      </section>
+
+      <div class="views">
+        <section id="view-serial" class="view active">
+          <div class="view-header">
+            <h2>Monitor Serial</h2>
+            <p>Informações de leitura física, anomalias de sensor e tendências de hardware.</p>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h3>Problemas</h3>
+              <p id="serial-problems">Carregando...</p>
+            </div>
+            <div class="summary-card">
+              <h3>Normalidade</h3>
+              <p id="serial-normality">Carregando...</p>
+            </div>
+            <div class="summary-card">
+              <h3>Futuro</h3>
+              <p id="serial-future">Carregando...</p>
+            </div>
+          </div>
+
+          <section class="panel panel-wide">
+            <h3>Últimas leituras</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Temperatura</th>
+                    <th>Umidade Ar</th>
+                    <th>Umidade Solo</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="serial-table-body">
+                  <tr><td colspan="5">Carregando dados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel panel-wide">
+            <h3>Análise inteligente</h3>
+            <div id="serial-forecast" class="analysis-block">Aguardando dados...</div>
+          </section>
+        </section>
+
+        <section id="view-api" class="view">
+          <div class="view-header">
+            <h2>Logs da API</h2>
+            <p>Saúde do backend, alertas críticos e padrões de falhas.</p>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h3>Problemas</h3>
+              <p id="api-problems">Carregando...</p>
+            </div>
+            <div class="summary-card">
+              <h3>Normalidade</h3>
+              <p id="api-normality">Carregando...</p>
+            </div>
+            <div class="summary-card">
+              <h3>Futuro</h3>
+              <p id="api-future">Carregando...</p>
+            </div>
+          </div>
+
+          <section class="panel panel-wide">
+            <h3>Alertas recentes</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Tipo</th>
+                    <th>Severidade</th>
+                    <th>Mensagem</th>
+                  </tr>
+                </thead>
+                <tbody id="api-alerts-body">
+                  <tr><td colspan="4">Carregando alertas...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel panel-wide">
+            <h3>Resumo da performance</h3>
+            <div class="performance-grid">
+              <div><strong>Uptime</strong><p id="api-uptime">--</p></div>
+              <div><strong>Total leituras</strong><p id="api-total-readings">--</p></div>
+              <div><strong>Críticos 24h</strong><p id="api-critical-count">--</p></div>
+              <div><strong>Alertas 24h</strong><p id="api-alert-count">--</p></div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

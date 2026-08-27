@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/cadastro/api_service.dart';
 import 'package:flutter_application_1/cadastro/ip_util.dart';
+import 'package:flutter_application_1/cadastro/api_settings.dart';
 import 'package:flutter_application_1/main.dart';
 
 import 'cliente.dart';
@@ -338,7 +339,6 @@ class _GlassCard extends StatelessWidget {
   final Widget child;
 
   const _GlassCard({
-    super.key,
     required this.child,
   });
 
@@ -718,6 +718,111 @@ class _TelainicialState extends State<Telainicial>
     );
   }
 
+  void _abrirConfiguracoes() {
+    final controller = TextEditingController();
+    
+    ApiSettings.obterUrlApi().then((url) {
+      controller.text = url;
+      
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.settings, color: _P.deep),
+              SizedBox(width: 8),
+              Text('Configurações de API'),
+            ],
+          ),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.88,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'URL da API:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      hintText: 'Ex: http://localhost:8080 ou https://api.example.com',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.link),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _P.light,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _P.mint),
+                    ),
+                    child: const Text(
+                      '💡 Dica: Você pode usar:\n'
+                      '• http://localhost:8080 (local)\n'
+                      '• http://192.168.x.x:8080 (rede local)\n'
+                      '• https://api.example.com (nuvem)',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final novaUrl = controller.text.trim();
+                if (novaUrl.isNotEmpty) {
+                  await ApiSettings.salvarUrlApi(novaUrl);
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('API configurada para: $novaUrl'),
+                      backgroundColor: _P.deep,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Digite uma URL válida.')),
+                  );
+                }
+              },
+              child: const Text('Salvar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await ApiSettings.resetarUrlApi();
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('API resetada para padrão.'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              },
+              child: const Text('Resetar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
   Widget _supportBox(String title, List<String> items) {
     return Container(
       width: double.infinity,
@@ -892,6 +997,12 @@ class _TelainicialState extends State<Telainicial>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Configurações de API',
+            onPressed: _abrirConfiguracoes,
+            icon: const Icon(Icons.settings, color: _P.dark),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: 'Atendimento',
             onPressed: _abrirSuporte,
@@ -1432,6 +1543,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _loading = false;
   bool? conexaoOk;
   String? ipExterno;
+  String? _statusMensagem;
 
   late final AnimationController _controller;
   late final Animation<Offset> _cardSlide;
@@ -1499,6 +1611,7 @@ class _LoginScreenState extends State<LoginScreen>
         setState(() {
           conexaoOk = false;
           ipExterno = null;
+          _statusMensagem = 'A API da estufa nao esta respondendo.';
         });
       }
       return;
@@ -1509,18 +1622,24 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() {
         conexaoOk = sucesso;
         ipExterno = ip;
+        if (!sucesso) {
+          _statusMensagem = 'A API da estufa nao esta respondendo.';
+        } else {
+          _statusMensagem = null;
+        }
       });
     }
   }
 
   void _verificarLogin() async {
+    setState(() {
+      _statusMensagem = null;
+    });
+
     if (conexaoOk != true || ipExterno == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Conexao com a API falhou. Verifique o IP.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _statusMensagem = 'Conexao com a API falhou. Verifique o IP.';
+      });
       return;
     }
 
@@ -1570,7 +1689,7 @@ class _LoginScreenState extends State<LoginScreen>
                     _usuarioController.text.replaceAll(RegExp(r'\D'), ''),
                 administrador: sucesso.administrador,
                 pendenciasAprovacao: sucesso.pendenciasAprovacao,
-                initialIndex: 5,
+                initialIndex: 0,
               ),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(
@@ -1590,30 +1709,45 @@ class _LoginScreenState extends State<LoginScreen>
         (route) => false,
       );
     } else {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.lock_person_outlined, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Acesso Negado'),
-                ],
-              ),
-              content: Text(sucesso.mensagem),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      setState(() {
+        _statusMensagem = sucesso.mensagem;
+      });
     }
+  }
+
+  Widget _statusBanner() {
+    final mensagem = _statusMensagem ??
+        (conexaoOk == false ? 'A API da estufa nao esta respondendo.' : null);
+
+    if (mensagem == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade600,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              mensagem,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _connectionChip() {
@@ -1787,6 +1921,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                             ),
                           ),
+                          _statusBanner(),
                           const SizedBox(height: 12),
                           FadeTransition(
                             opacity: _buttonFade,

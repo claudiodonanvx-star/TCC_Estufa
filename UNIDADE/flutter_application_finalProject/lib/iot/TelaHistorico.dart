@@ -91,8 +91,6 @@ class _TelaHistoricoState extends State<TelaHistorico> {
           _periodoBtn('semanal', '7 dias'),
           const SizedBox(width: 8),
           _periodoBtn('mensal', '30 dias'),
-          const SizedBox(width: 8),
-          _periodoBtn('anual', '365 dias'),
         ],
       ),
     );

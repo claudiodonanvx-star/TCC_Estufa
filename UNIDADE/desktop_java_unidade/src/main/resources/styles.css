@@ -1,39 +1,42 @@
 .root {
     -fx-font-family: "Segoe UI";
-    -fx-background-color: linear-gradient(to bottom, #f4fff8, #edf7ff);
+    -fx-background-color: linear-gradient(to bottom, #effaf1, #e8f4ff);
 }
 
 .title {
-    -fx-font-size: 21px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #0f5132;
+    -fx-font-size: 22px;
+    -fx-font-weight: 800;
+    -fx-text-fill: #0e7d63;
 }
 
 .badge {
-    -fx-background-color: rgba(255, 255, 255, 0.8);
-    -fx-padding: 6 10 6 10;
-    -fx-background-radius: 8;
-    -fx-border-color: #b4ddc5;
-    -fx-border-radius: 8;
+    -fx-background-color: rgba(255, 255, 255, 0.92);
+    -fx-padding: 8 14 8 14;
+    -fx-background-radius: 14;
+    -fx-border-color: #c6eed9;
+    -fx-border-radius: 14;
+    -fx-font-size: 12px;
+    -fx-text-fill: #0f5132;
 }
 
 .kpi-card {
-    -fx-background-color: rgba(255, 255, 255, 0.95);
-    -fx-background-radius: 10;
-    -fx-border-color: #c8dfd5;
-    -fx-border-radius: 10;
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-border-color: #cce9db;
+    -fx-border-radius: 16;
+    -fx-effect: dropshadow(one-pass-box, rgba(0, 0, 0, 0.06), 10, 0, 0, 4);
 }
 
 .card-title {
     -fx-font-size: 12px;
-    -fx-font-weight: 600;
-    -fx-text-fill: #3e5c53;
+    -fx-font-weight: 700;
+    -fx-text-fill: #144f39;
 }
 
 .card-value {
-    -fx-font-size: 20px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #124734;
+    -fx-font-size: 22px;
+    -fx-font-weight: 800;
+    -fx-text-fill: #0e7d63;
 }
 
 .tab-pane .tab-header-area .tab-header-background {
@@ -41,13 +44,14 @@
 }
 
 .tab-pane .tab {
-    -fx-background-color: rgba(255, 255, 255, 0.85);
-    -fx-background-radius: 8 8 0 0;
-    -fx-padding: 8 14 8 14;
+    -fx-background-color: rgba(255, 255, 255, 0.9);
+    -fx-background-radius: 10 10 0 0;
+    -fx-padding: 10 16 10 16;
+    -fx-border-color: transparent;
 }
 
 .tab-pane .tab:selected {
-    -fx-background-color: #1f7a5a;
+    -fx-background-color: #0e7d63;
 }
 
 .tab-pane .tab:selected .tab-label {
@@ -56,12 +60,80 @@
 }
 
 .button {
-    -fx-background-color: #1f7a5a;
+    -fx-background-color: #0e7d63;
     -fx-text-fill: white;
-    -fx-font-weight: 600;
-    -fx-background-radius: 8;
+    -fx-font-weight: 700;
+    -fx-background-radius: 12;
+    -fx-padding: 8 16 8 16;
 }
 
 .button:hover {
-    -fx-background-color: #17644a;
+    -fx-background-color: #0b604d;
+}
+
+.dashboard-header {
+    -fx-background-color: rgba(255, 255, 255, 0.92);
+    -fx-background-radius: 18;
+    -fx-padding: 18;
+    -fx-border-color: rgba(14, 125, 99, 0.16);
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(one-pass-box, rgba(0, 0, 0, 0.08), 18, 0, 0, 6);
+}
+
+.subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #1e5242;
+}
+
+.overview-section {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(14, 125, 99, 0.12);
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(one-pass-box, rgba(0, 0, 0, 0.05), 14, 0, 0, 5);
+}
+
+.overview-card-grid {
+    -fx-padding: 4 0 4 0;
+}
+
+.chart-card {
+    -fx-background-color: white;
+    -fx-background-radius: 18;
+    -fx-border-color: #e2eee5;
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(one-pass-box, rgba(14, 125, 99, 0.08), 14, 0, 0, 6);
+}
+
+.chart-card .chart-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #0e7d63;
+}
+
+.overview-split {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab-header-area {
+    -fx-padding: 0 0 0 0;
+}
+
+.tab-pane .tab-header-background {
+    -fx-background-color: transparent;
+}
+
+.header-actions {
+    -fx-alignment: center-right;
+}
+
+.pane {
+    -fx-background-color: transparent;
+}
+
+.chart-plot-background {
+    -fx-background-color: transparent;
 }

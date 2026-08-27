@@ -5,12 +5,17 @@
 #include <ArduinoJson.h>
 
 // Wi-Fi
-const char* ssid = "LUCIANA";
-const char* password = "casa75nova";
-//const char* ssid = "Dona";
-//const char* password = "don@12345";
-//const char* ssid = "AMNET_EDUARDO-CASA";
-//const char* password = "casa5208";
+struct WifiNetwork {
+  const char* ssid;
+  const char* password;
+};
+
+const WifiNetwork wifiNetworks[] = {
+  {"LUCIANA", "casa75nova"},
+  {"Dona", "don@12345"},
+  {"AMNET_EDUARDO-CASA", "casa5208"}
+};
+const int wifiNetworkCount = sizeof(wifiNetworks) / sizeof(wifiNetworks[0]);
 
 // API
 const char* serverUrl = "http://192.168.0.108:8080/api/validar"; // ajuste conforme IP da sua máquina
@@ -102,6 +107,46 @@ void setColor(int r, int g, int b) {
 #endif
 }
 
+bool connectToNetwork(const char* ssid, const char* password, unsigned long timeoutMs) {
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.begin(ssid, password);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void connectToKnownWifi() {
+  for (int i = 0; i < wifiNetworkCount; i++) {
+    const char* trySsid = wifiNetworks[i].ssid;
+    const char* tryPassword = wifiNetworks[i].password;
+
+    Serial.print("Tentando SSID: ");
+    Serial.println(trySsid);
+    sinalizarConectandoWifi();
+
+    if (connectToNetwork(trySsid, tryPassword, 15000)) {
+      Serial.println("\n✅ Conectado ao Wi-Fi!");
+      Serial.print("📶 IP do ESP32: ");
+      Serial.println(WiFi.localIP());
+      sinalizarWifiConectado();
+      return;
+    }
+
+    Serial.println("Falha ao conectar nesta rede.");
+  }
+
+  Serial.println("Nenhuma rede conhecida foi encontrada.");
+  setColor(255, 0, 0);
+  delay(10000);
+  ESP.restart();
+}
+
 void testarRgbNoBoot() {
   Serial.println("Teste RGB: vermelho -> verde -> azul -> branco -> apagado");
   setColor(255, 0, 0);
@@ -167,17 +212,7 @@ void setup() {
   testarRgbNoBoot();
 
   Serial.println("Conectando ao Wi-Fi...");
-  sinalizarConectandoWifi();
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\n✅ Conectado ao Wi-Fi!");
-  Serial.print("📶 IP do ESP32: ");
-  Serial.println(WiFi.localIP());
-  sinalizarWifiConectado();
+  connectToKnownWifi();
 }
 
 void loop() {
@@ -266,23 +301,7 @@ void loop() {
     setColor(255, 0, 0);
 
     Serial.println("Tentando reconectar Wi-Fi...");
-    sinalizarConectandoWifi();
-    WiFi.disconnect();
-    WiFi.begin(ssid, password);
-    int tentativas = 0;
-    while (WiFi.status() != WL_CONNECTED && tentativas < 20) {
-      delay(500);
-      Serial.print(".");
-      tentativas++;
-    }
-    Serial.println();
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.print("Wi-Fi reconectado. IP: ");
-      Serial.println(WiFi.localIP());
-      sinalizarWifiConectado();
-    } else {
-      Serial.println("Falha na reconexao Wi-Fi.");
-    }
+    connectToKnownWifi();
   }
 
   delay(20000); // Aguarda 20 segundos antes de repetir 

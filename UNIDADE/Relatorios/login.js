@@ -18,7 +18,7 @@ function mostrarMensagem(texto, tipo) {
 function jaAutenticado() {
   const auth = localStorage.getItem('estufaAuth');
   if (auth) {
-    window.location.href = 'relatoriodoProduto.html';
+    window.location.href = 'dashboard.html';
   }
 }
 
@@ -77,7 +77,7 @@ form.addEventListener('submit', async (event) => {
   try {
     await autenticar(login, senha);
     mostrarMensagem('Login realizado com sucesso. Redirecionando...', 'ok');
-    window.location.href = 'relatoriodoProduto.html';
+    window.location.href = 'dashboard.html';
   } catch (err) {
     mostrarMensagem(err.message || 'Erro no login', 'erro');
   } finally {

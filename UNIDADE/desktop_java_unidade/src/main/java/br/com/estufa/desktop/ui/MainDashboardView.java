@@ -98,8 +98,11 @@ public class MainDashboardView extends BorderPane {
     }
 
     private Node buildHeader(Runnable refreshCallback) {
-        Label title = new Label("Estufa Smart - Desktop Inteligente (UNIDADE)");
+        Label title = new Label("Estufa Smart - Desktop Inteligente");
         title.getStyleClass().add("title");
+
+        Label subtitle = new Label("Dashboard de monitoramento unificado para o produto cliente");
+        subtitle.getStyleClass().add("subtitle");
 
         Button refreshBtn = new Button("Atualizar agora");
         refreshBtn.setOnAction(event -> {
@@ -127,19 +130,26 @@ public class MainDashboardView extends BorderPane {
         infoUser.getStyleClass().add("badge");
 
         alertaBadge.setVisible(false);
-        alertaBadge.setStyle("-fx-background-color: #b42318; -fx-text-fill: white; -fx-padding: 4 10 4 10; -fx-background-radius: 8; -fx-font-weight: bold;");
+        alertaBadge.setStyle("-fx-background-color: #b42318; -fx-text-fill: white; -fx-padding: 6 14 6 14; -fx-background-radius: 12; -fx-font-weight: bold;");
 
-        HBox left = new HBox(10, title);
+        HBox headerTitle = new HBox(10, title);
+        headerTitle.setAlignment(Pos.CENTER_LEFT);
+
+        VBox left = new VBox(6, headerTitle, subtitle);
         left.setAlignment(Pos.CENTER_LEFT);
 
-        HBox right = new HBox(8, alertaBadge, infoUser, statusApi, infoCultivo, infoAmostras,
-                new Label("Auto:"), intervalCombo, new Label("s"), refreshCountdown, refreshBtn);
+        HBox chips = new HBox(8, statusApi, infoCultivo, infoAmostras, infoUser);
+        chips.setAlignment(Pos.CENTER_RIGHT);
+
+        HBox right = new HBox(10, alertaBadge, chips, new Label("Auto:"), intervalCombo, new Label("s"), refreshCountdown, refreshBtn);
         right.setAlignment(Pos.CENTER_RIGHT);
+        right.getStyleClass().add("header-actions");
 
         BorderPane pane = new BorderPane();
         pane.setLeft(left);
         pane.setRight(right);
-        pane.setPadding(new Insets(8, 0, 12, 0));
+        pane.getStyleClass().add("dashboard-header");
+        pane.setPadding(new Insets(10, 0, 16, 0));
         return pane;
     }
 
@@ -180,24 +190,37 @@ public class MainDashboardView extends BorderPane {
     }
 
     private Node buildOverview() {
-        VBox root = new VBox(10);
-        root.setPadding(new Insets(6));
+        VBox root = new VBox(14);
+        root.setPadding(new Insets(12));
+        root.getStyleClass().add("overview-section");
 
         GridPane cards = new GridPane();
-        cards.setHgap(10);
-        cards.setVgap(10);
-        cards.add(card("Temp media", kpiTemp), 0, 0);
-        cards.add(card("Umidade media", kpiUmidade), 1, 0);
+        cards.setHgap(12);
+        cards.setVgap(12);
+        cards.setPadding(new Insets(4, 0, 4, 0));
+        cards.getStyleClass().add("overview-card-grid");
+        cards.add(card("Temp média", kpiTemp), 0, 0);
+        cards.add(card("Umidade média", kpiUmidade), 1, 0);
         cards.add(card("Umidade solo", kpiSolo), 2, 0);
-        cards.add(card("Tempo ideal", kpiIdeal), 3, 0);
-        cards.add(card("Alertas", kpiAlerta), 4, 0);
-        cards.add(card("Indice saude", kpiSaude), 5, 0);
+        cards.add(card("Tempo ideal", kpiIdeal), 0, 1);
+        cards.add(card("Alertas", kpiAlerta), 1, 1);
+        cards.add(card("Índice saúde", kpiSaude), 2, 1);
 
         SplitPane split = new SplitPane();
-        split.setDividerPositions(0.6);
+        split.setDividerPositions(0.62);
+        split.getStyleClass().add("overview-split");
 
-        VBox left = new VBox(10, overviewLineChart, overviewBarChart);
-        VBox right = new VBox(10, overviewPieChart);
+        overviewLineChart.setCreateSymbols(false);
+        overviewLineChart.setLegendVisible(true);
+        overviewBarChart.setBarGap(6);
+        overviewBarChart.setCategoryGap(18);
+        overviewPieChart.setLabelsVisible(true);
+        overviewPieChart.setClockwise(true);
+
+        VBox left = new VBox(14, wrapChart(overviewLineChart), wrapChart(overviewBarChart));
+        left.setPadding(new Insets(4));
+        VBox right = new VBox(14, wrapChart(overviewPieChart));
+        right.setPadding(new Insets(4));
 
         VBox.setVgrow(overviewLineChart, Priority.ALWAYS);
         VBox.setVgrow(overviewBarChart, Priority.ALWAYS);
@@ -208,6 +231,15 @@ public class MainDashboardView extends BorderPane {
         root.getChildren().addAll(cards, split);
         VBox.setVgrow(split, Priority.ALWAYS);
         return root;
+    }
+
+    private Node wrapChart(Node chart) {
+        VBox wrapper = new VBox(chart);
+        wrapper.getStyleClass().add("chart-card");
+        wrapper.setPadding(new Insets(16));
+        wrapper.setMinHeight(270);
+        wrapper.setMaxWidth(Double.MAX_VALUE);
+        return wrapper;
     }
 
     private Node buildReportsTab() {

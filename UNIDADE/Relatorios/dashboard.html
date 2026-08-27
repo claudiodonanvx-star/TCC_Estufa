@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Inteligente – Estufa Smart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="modules/utils.js" defer></script>
+  <script src="modules/api-client.js" defer></script>
+  <script src="modules/real-time.js" defer></script>
+  <script src="modules/dashboard.js" defer></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <img src="logo_colorido.png" alt="Logo" class="sidebar-logo" />
+    <h2>Estufa Smart</h2>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="#dashboard" class="nav-link active" data-view="dashboard">📊 Dashboard</a>
+    <a href="#mapa" class="nav-link" data-view="mapa">🗺️ Mapa Visual</a>
+    <a href="#alerts" class="nav-link" data-view="alerts">⚠️ Alertas</a>
+    <a href="#comparativa" class="nav-link" data-view="comparativa">📈 Comparativa</a>
+    <a href="#calendario" class="nav-link" data-view="calendario">📅 Calendário</a>
+    <a href="#relatorios" class="nav-link" data-view="relatorios">📄 Relatórios</a>
+    <a href="#gamificacao" class="nav-link" data-view="gamificacao">🎮 Metas</a>
+    <a href="#previsoes" class="nav-link" data-view="previsoes">🔮 Previsões</a>
+    <a href="#mobile-sync" class="nav-link" data-view="mobile-sync">📱 Sincronização</a>
+  </nav>
+  <div class="sidebar-footer">
+    <button id="btn-logout" class="btn-logout">Sair</button>
+  </div>
+</div>
+
+<main class="main-content">
+  
+  <!-- HEADER -->
+  <header class="top-header">
+    <div class="header-left">
+      <h1 id="page-title">Dashboard em Tempo Real</h1>
+      <p id="page-subtitle">Monitoramento inteligente da sua estufa</p>
+    </div>
+    <div class="header-right">
+      <div id="status-conexao" class="status-badge">● Conectando...</div>
+      <div id="ultima-sync" class="sync-time">Sincronizado há poucos segundos</div>
+    </div>
+  </header>
+
+  <!-- CONTAINER DE VIEWS -->
+  <div class="views-container">
+
+    <!-- VIEW: DASHBOARD (Real-time) -->
+    <div id="view-dashboard" class="view active">
+      
+      <!-- Alerta flutuante -->
+      <div id="alert-container" class="alert-container"></div>
+
+      <!-- Cards principais em tempo real -->
+      <section class="rt-cards-grid">
+        <div class="rt-card" id="rt-temp">
+          <div class="rt-icon">🌡️</div>
+          <div class="rt-label">Temperatura</div>
+          <div class="rt-value" data-field="temperatura">--</div>
+          <div class="rt-unit">°C</div>
+          <div class="rt-trend" id="trend-temp">↔ Estável</div>
+        </div>
+        
+        <div class="rt-card" id="rt-umid">
+          <div class="rt-icon">💧</div>
+          <div class="rt-label">Umidade do Ar</div>
+          <div class="rt-value" data-field="umidade">--</div>
+          <div class="rt-unit">%</div>
+          <div class="rt-trend" id="trend-umid">↔ Estável</div>
+        </div>
+
+        <div class="rt-card" id="rt-solo">
+          <div class="rt-icon">🌱</div>
+          <div class="rt-label">Umidade do Solo</div>
+          <div class="rt-value" data-field="umidadeSolo">--</div>
+          <div class="rt-unit">%</div>
+          <div class="rt-trend" id="trend-solo">↔ Estável</div>
+        </div>
+
+        <div class="rt-card rt-card-score">
+          <div class="rt-icon">❤️</div>
+          <div class="rt-label">Saúde do Cultivo</div>
+          <div class="rt-score-circle">
+            <div class="rt-score-value" id="health-score">--</div>
+            <div class="rt-score-unit">/100</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Gauges animados -->
+      <section class="gauges-section">
+        <h2>Indicadores Visuais</h2>
+        <div class="gauges-grid">
+          <div class="gauge-container">
+            <canvas id="gauge-temp-realtime"></canvas>
+          </div>
+          <div class="gauge-container">
+            <canvas id="gauge-umid-realtime"></canvas>
+          </div>
+          <div class="gauge-container">
+            <canvas id="gauge-solo-realtime"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recomendações Smart -->
+      <section class="recommendations-section">
+        <h2>💡 Sugestões Inteligentes</h2>
+        <div id="recommendations-list" class="recommendations-list">
+          <div class="recommendation-item loading">Analisando dados...</div>
+        </div>
+      </section>
+
+      <!-- Gráfico histórico 24h -->
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Histórico - Últimas 24h</h2>
+          <div class="chart-controls">
+            <button class="chart-period active" data-period="24h">24h</button>
+            <button class="chart-period" data-period="7d">7d</button>
+            <button class="chart-period" data-period="30d">30d</button>
+          </div>
+        </div>
+        <canvas id="chart-historico-realtime"></canvas>
+      </section>
+
+    </div>
+
+    <!-- VIEW: MAPA VISUAL -->
+    <div id="view-mapa" class="view">
+      <section class="mapa-section">
+        <h2>Mapa Visual da Estufa</h2>
+        <div id="estufa-mapa" class="estufa-mapa">
+          <div class="estufa-canvas">
+            <svg id="mapa-svg" width="100%" height="500" viewBox="0 0 1000 600">
+              <!-- Background -->
+              <rect x="10" y="10" width="980" height="580" fill="#1a3a24" stroke="#66bb6a" stroke-width="3" rx="10"/>
+              
+              <!-- Zonas -->
+              <g id="zonas-container"></g>
+              
+              <!-- Sensores -->
+              <g id="sensores-container"></g>
+            </svg>
+          </div>
+          <div class="mapa-legenda">
+            <div class="legenda-item">
+              <div class="legenda-cor" style="background: #66bb6a;"></div>
+              Temperatura ideal
+            </div>
+            <div class="legenda-item">
+              <div class="legenda-cor" style="background: #fdd835;"></div>
+              Aviso
+            </div>
+            <div class="legenda-item">
+              <div class="legenda-cor" style="background: #ef5350;"></div>
+              Crítico
+            </div>
+            <div class="legenda-item">
+              <div class="legenda-cor" style="background: #90caf9;"></div>
+              Sensor selecionado
+            </div>
+          </div>
+        </div>
+        <div id="sensor-details" class="sensor-details">
+          <h3>Detalhes do Sensor</h3>
+          <div class="sensor-info">Clique em um sensor para ver detalhes</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: ALERTAS E TIMELINE -->
+    <div id="view-alerts" class="view">
+      <section class="alerts-section">
+        <h2>Histórico de Alertas e Eventos</h2>
+        <div class="alerts-filter">
+          <button class="filter-btn active" data-filter="all">Todos</button>
+          <button class="filter-btn" data-filter="temperatura">Temperatura</button>
+          <button class="filter-btn" data-filter="umidade">Umidade</button>
+          <button class="filter-btn" data-filter="manutencao">Manutenção</button>
+          <button class="filter-btn" data-filter="automacao">Automação</button>
+        </div>
+        <div id="timeline-alerts" class="timeline-alerts">
+          <div class="timeline-item loading">Carregando alertas...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: COMPARATIVA E BENCHMARK -->
+    <div id="view-comparativa" class="view">
+      <section class="comparativa-section">
+        <h2>Análise Comparativa</h2>
+        
+        <div class="comparativa-tabs">
+          <button class="tab-btn active" data-tab="vs-historico">vs. Histórico</button>
+          <button class="tab-btn" data-tab="vs-outros">vs. Outras Estufas</button>
+          <button class="tab-btn" data-tab="benchmark">Benchmark</button>
+        </div>
+
+        <div id="comparativa-content">
+          <div class="tab-content active" data-tab="vs-historico">
+            <canvas id="chart-comparativa-historico"></canvas>
+            <div class="comparativa-stats">
+              <div class="stat-box">
+                <div class="stat-label">Produtividade</div>
+                <div class="stat-value">+8%</div>
+                <div class="stat-trend">📈 Acima da média</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Eficiência</div>
+                <div class="stat-value">+12%</div>
+                <div class="stat-trend">📈 Melhorando</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Score Saúde</div>
+                <div class="stat-value">92/100</div>
+                <div class="stat-trend">✅ Excelente</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" data-tab="vs-outros">
+            <canvas id="chart-comparativa-outros"></canvas>
+            <div class="leaderboard">
+              <h3>Ranking de Eficiência</h3>
+              <div id="leaderboard-list" class="leaderboard-list">
+                <div class="loading">Carregando ranking...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" data-tab="benchmark">
+            <div id="benchmark-content">
+              <div class="loading">Carregando benchmark...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: CALENDÁRIO AGRÍCOLA -->
+    <div id="view-calendario" class="view">
+      <section class="calendario-section">
+        <h2>Calendário Agrícola</h2>
+        <div class="calendario-container">
+          <div id="calendar-visualization" class="calendar-viz">
+            <!-- Timeline de fases -->
+          </div>
+          <div class="calendar-legenda">
+            <div class="fase-legenda">
+              <div class="fase-dot" style="background: #66bb6a;"></div>
+              <span>Plantio</span>
+            </div>
+            <div class="fase-legenda">
+              <div class="fase-dot" style="background: #4fc3f7;"></div>
+              <span>Crescimento</span>
+            </div>
+            <div class="fase-legenda">
+              <div class="fase-dot" style="background: #fdd835;"></div>
+              <span>Amadurecimento</span>
+            </div>
+            <div class="fase-legenda">
+              <div class="fase-dot" style="background: #ff7043;"></div>
+              <span>Colheita</span>
+            </div>
+          </div>
+        </div>
+        <div class="marcos-timeline">
+          <h3>Marcos do Cultivo</h3>
+          <div id="marcos-list" class="marcos-list">
+            <div class="loading">Carregando marcos...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: RELATÓRIOS AUTOMÁTICOS -->
+    <div id="view-relatorios" class="view">
+      <section class="relatorios-section">
+        <h2>Relatórios Automáticos</h2>
+        <div class="relatorios-controls">
+          <button id="btn-gerar-relatorio" class="btn-primary">📄 Gerar Relatório Agora</button>
+          <button id="btn-enviar-email" class="btn-secondary">📧 Enviar por E-mail</button>
+          <button id="btn-exportar-pdf" class="btn-secondary">💾 Exportar PDF</button>
+        </div>
+        <div class="relatorios-agendamento">
+          <label>
+            <input type="checkbox" id="relatorio-automatico" />
+            Ativar relatórios automáticos
+          </label>
+          <select id="relatorio-frequencia">
+            <option value="diario">Diário</option>
+            <option value="semanal" selected>Semanal</option>
+            <option value="mensal">Mensal</option>
+          </select>
+          <select id="relatorio-dia">
+            <option value="segunda">Segunda-feira</option>
+            <option value="sexta" selected>Sexta-feira</option>
+          </select>
+        </div>
+        <div id="relatorios-historico" class="relatorios-historico">
+          <h3>Relatórios Anteriores</h3>
+          <div id="relatorios-list" class="relatorios-list">
+            <div class="loading">Carregando histórico...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: GAMIFICAÇÃO E METAS -->
+    <div id="view-gamificacao" class="view">
+      <section class="gamificacao-section">
+        <h2>Metas e Gamificação</h2>
+        
+        <div class="metas-grid">
+          <div class="meta-card">
+            <div class="meta-header">
+              <h3>Temperatura Estável</h3>
+              <div class="meta-status">Active</div>
+            </div>
+            <div class="meta-description">Manter T entre 22-25°C</div>
+            <div class="meta-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 85%;"></div>
+              </div>
+              <span class="progress-text">85% - 34/40 dias</span>
+            </div>
+            <div class="meta-reward">🏆 +100 pontos se alcançar</div>
+          </div>
+
+          <div class="meta-card">
+            <div class="meta-header">
+              <h3>Umidade Ideal</h3>
+              <div class="meta-status">Active</div>
+            </div>
+            <div class="meta-description">Manter U entre 60-70%</div>
+            <div class="meta-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 92%;"></div>
+              </div>
+              <span class="progress-text">92% - 37/40 dias</span>
+            </div>
+            <div class="meta-reward">🏆 +100 pontos se alcançar</div>
+          </div>
+
+          <div class="meta-card">
+            <div class="meta-header">
+              <h3>Zero Alertas Críticos</h3>
+              <div class="meta-status completed">✅ Concluída</div>
+            </div>
+            <div class="meta-description">Semana sem alertas críticos</div>
+            <div class="meta-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 100%;"></div>
+              </div>
+              <span class="progress-text">100% - Concluído!</span>
+            </div>
+            <div class="meta-reward-earned">🏆 +250 pontos</div>
+          </div>
+
+          <div class="meta-card">
+            <div class="meta-header">
+              <h3>Eficiência Energética</h3>
+              <div class="meta-status">Active</div>
+            </div>
+            <div class="meta-description">Reduzir consumo em 10%</div>
+            <div class="meta-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 65%;"></div>
+              </div>
+              <span class="progress-text">65% - 6.5% alcançado</span>
+            </div>
+            <div class="meta-reward">🏆 +150 pontos se alcançar</div>
+          </div>
+        </div>
+
+        <div class="badges-section">
+          <h3>Troféus e Badges</h3>
+          <div class="badges-grid">
+            <div class="badge-item earned">
+              <div class="badge-icon">🥇</div>
+              <div class="badge-name">Iniciante</div>
+              <div class="badge-date">25 mai 2026</div>
+            </div>
+            <div class="badge-item earned">
+              <div class="badge-icon">🌟</div>
+              <div class="badge-name">Uma Semana Perfeita</div>
+              <div class="badge-date">12 mai 2026</div>
+            </div>
+            <div class="badge-item locked">
+              <div class="badge-icon">👑</div>
+              <div class="badge-name">Mês Sem Alertas</div>
+              <div class="badge-condition">Faltam 8 dias</div>
+            </div>
+            <div class="badge-item locked">
+              <div class="badge-icon">⚡</div>
+              <div class="badge-name">Eficiência Máxima</div>
+              <div class="badge-condition">Desbloqueável</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="points-summary">
+          <div class="points-header">
+            <h3>Pontuação</h3>
+            <div class="points-total">
+              <span class="points-value">2,450</span>
+              <span class="points-label">Pontos Totais</span>
+            </div>
+          </div>
+          <div class="points-breakdown">
+            <div class="point-item">
+              <span>Metas Concluídas</span>
+              <strong>+1,200 pts</strong>
+            </div>
+            <div class="point-item">
+              <span>Badges Desbloqueados</span>
+              <strong>+750 pts</strong>
+            </div>
+            <div class="point-item">
+              <span>Eficiência Operacional</span>
+              <strong>+500 pts</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: PREVISÕES PREDITIVAS -->
+    <div id="view-previsoes" class="view">
+      <section class="previsoes-section">
+        <h2>Previsões Inteligentes (7 dias)</h2>
+        
+        <div class="previsoes-container">
+          <div class="previsao-card">
+            <div class="previsao-header">
+              <h3>Temperatura</h3>
+              <span class="confianca">Confiança: 87%</span>
+            </div>
+            <canvas id="chart-previsao-temp"></canvas>
+            <div class="previsao-recomendacao">
+              <strong>Recomendação:</strong> Com 85% de confiança, temperatura cairá sexta-feira 14h. Ação: aquecer 1h antes.
+            </div>
+          </div>
+
+          <div class="previsao-card">
+            <div class="previsao-header">
+              <h3>Umidade</h3>
+              <span class="confianca">Confiança: 92%</span>
+            </div>
+            <canvas id="chart-previsao-umid"></canvas>
+            <div class="previsao-recomendacao">
+              <strong>Recomendação:</strong> Umidade subirá quinta-feira. Ação: aumentar ventilação.
+            </div>
+          </div>
+
+          <div class="previsao-card">
+            <div class="previsao-header">
+              <h3>Umidade do Solo</h3>
+              <span class="confianca">Confiança: 79%</span>
+            </div>
+            <canvas id="chart-previsao-solo"></canvas>
+            <div class="previsao-recomendacao">
+              <strong>Recomendação:</strong> Solo atingirá ponto crítico domingo. Ação: irrigar sábado 18h.
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: SINCRONIZAÇÃO MOBILE -->
+    <div id="view-mobile-sync" class="view">
+      <section class="mobile-section">
+        <h2>Sincronização Mobile ↔ Web</h2>
+        
+        <div class="sync-status-box">
+          <h3>Status de Sincronização</h3>
+          <div class="sync-status-grid">
+            <div class="sync-status-item">
+              <div class="sync-label">Última ação app</div>
+              <div class="sync-value">Ventilador ligado</div>
+              <div class="sync-time">Há 5 minutos (via app)</div>
+            </div>
+            <div class="sync-status-item">
+              <div class="sync-label">Confirmação</div>
+              <div class="sync-value check-icon">✅</div>
+              <div class="sync-time">Sincronizado</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-history">
+          <h3>Histórico de Ações (App ↔ Web)</h3>
+          <div id="sync-history-list" class="sync-history-list">
+            <div class="sync-history-item">
+              <div class="sync-time">19 mai 14:32</div>
+              <div class="sync-device">📱 App</div>
+              <div class="sync-action">Ligou ventilador</div>
+              <div class="sync-status">✅ Confirmado em 2s</div>
+            </div>
+            <div class="sync-history-item">
+              <div class="sync-time">19 mai 14:25</div>
+              <div class="sync-device">🖥️ Web</div>
+              <div class="sync-action">Aumentou aquecimento</div>
+              <div class="sync-status">✅ Confirmado em 1s</div>
+            </div>
+            <div class="sync-history-item">
+              <div class="sync-time">19 mai 14:10</div>
+              <div class="sync-device">📱 App</div>
+              <div class="sync-action">Ativou modo noturno</div>
+              <div class="sync-status">✅ Confirmado em 3s</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-qr-code">
+          <h3>Conectar com App Mobile</h3>
+          <div class="qr-container">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='white'/%3E%3C/svg%3E" alt="QR Code" />
+            <p>Escaneie este QR code para sincronizar com seu app mobile</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</main>
+
+</body>
+</html>

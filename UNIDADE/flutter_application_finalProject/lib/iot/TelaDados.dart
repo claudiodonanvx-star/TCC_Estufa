@@ -10,7 +10,9 @@ import 'package:flutter_application_1/iot/TelaHistorico.dart';
 import 'package:flutter_application_1/iot/notification_service.dart';
 
 class TelaDados extends StatefulWidget {
-  const TelaDados({super.key});
+  final bool administrador;
+
+  const TelaDados({super.key, this.administrador = false});
 
   @override
   State<TelaDados> createState() => _TelaDadosState();
@@ -188,6 +190,16 @@ class _TelaDadosState extends State<TelaDados> {
   }
 
   Future<void> _mostrarFormularioCadastroCultivo() async {
+    if (!widget.administrador) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas administradores podem cadastrar plantas.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final nomeController = TextEditingController();
     final tipoController = TextEditingController();
     final temperaturaMinimaController = TextEditingController();
@@ -198,6 +210,8 @@ class _TelaDadosState extends State<TelaDados> {
     final umidadeSoloMaximaController = TextEditingController();
     String? errorMessage;
     bool isSubmitting = false;
+    final baseContext = context;
+    bool dialogAtivo = true;
 
     await showDialog(
       context: context,
@@ -322,19 +336,32 @@ class _TelaDadosState extends State<TelaDados> {
                               'umidadeSoloMinima': umidadeSoloMinima,
                               'umidadeSoloMaxima': umidadeSoloMaxima,
                             });
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Planta cadastrada com sucesso.')),
-                              );
-                              await _buscarCultivosDisponiveis();
+
+                            if (!mounted) return;
+
+                            final navigator = Navigator.of(baseContext, rootNavigator: true);
+                            if (dialogAtivo && navigator.canPop()) {
+                              dialogAtivo = false;
+                              navigator.pop();
                             }
+
+                            final messenger = ScaffoldMessenger.maybeOf(baseContext);
+                            messenger?.showSnackBar(
+                              const SnackBar(
+                                content: Text('Planta cadastrada com sucesso.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+
+                            await _buscarCultivosDisponiveis();
                           } catch (e) {
-                            setState(() {
-                              errorMessage = 'Falha ao cadastrar planta: $e';
-                            });
+                            if (dialogAtivo && mounted) {
+                              setState(() {
+                                errorMessage = 'Falha ao cadastrar planta: $e';
+                              });
+                            }
                           } finally {
-                            if (mounted) {
+                            if (dialogAtivo && mounted) {
                               setState(() {
                                 isSubmitting = false;
                               });
@@ -495,6 +522,58 @@ class _TelaDadosState extends State<TelaDados> {
     );
   }
 
+  Future<void> _removerCultivoConfirmado(Cultivo cultivo) async {
+    if (!widget.administrador) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas administradores podem remover plantas.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remover planta'),
+        content: Text('Deseja remover "${cultivo.nome}" do sistema?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await removerCultivo(ipAtual, cultivo.id);
+      await _buscarCultivosDisponiveis();
+      await _buscarCultivoAtual();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Planta "${cultivo.nome}" removida com sucesso.')),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao remover planta: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _mostrarMenuCultivo() async {
     if (ipAtual.isEmpty || !ipAtual.startsWith('http')) {
       ScaffoldMessenger.of(
@@ -649,17 +728,55 @@ class _TelaDadosState extends State<TelaDados> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    onPressed: _mostrarFormularioCadastroCultivo,
-                    icon: const Icon(Icons.add_circle_outline),
-                    label: const Text('Cadastrar nova planta'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0E7D63),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                  if (widget.administrador)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _mostrarFormularioCadastroCultivo,
+                            icon: const Icon(Icons.add_circle_outline),
+                            label: const Text('Cadastrar planta'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0E7D63),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              final removiveis =
+                                  _cultivosDisponiveis
+                                      .where((c) => !c.habilitada)
+                                      .toList();
+
+                              if (removiveis.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Não há plantas disponíveis para remoção.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              _removerCultivoConfirmado(removiveis.first);
+                            },
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Remover'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
                   const SizedBox(height: 10),
                   Flexible(
                     child: ListView.separated(
@@ -706,24 +823,33 @@ class _TelaDadosState extends State<TelaDados> {
                             ),
                             subtitle: Text(cultivo.tipo),
                             trailing:
-                                isAtivo
-                                    ? const Text(
-                                      'Atual',
-                                      style: TextStyle(
-                                        color: Color(0xFF0E7D63),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    )
-                                    : const Icon(Icons.swap_horiz),
-                            onTap:
-                                isAtivo
-                                    ? null
-                                    : () async {
-                                      await _alterarCultivo(cultivo.id);
-                                      if (context.mounted) {
-                                        Navigator.pop(context);
-                                      }
-                                    },
+                                widget.administrador && !isAtivo
+                                    ? IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                        onPressed: () => _removerCultivoConfirmado(cultivo),
+                                      )
+                                    : (isAtivo
+                                        ? const Text(
+                                            'Atual',
+                                            style: TextStyle(
+                                              color: Color(0xFF0E7D63),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          )
+                                        : const Icon(Icons.swap_horiz)),
+                            onTap: () async {
+                              if (widget.administrador && !isAtivo) {
+                                await _removerCultivoConfirmado(cultivo);
+                                return;
+                              }
+
+                              if (isAtivo) return;
+
+                              await _alterarCultivo(cultivo.id);
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                            },
                           ),
                         );
                       },
@@ -1301,58 +1427,4 @@ class _TelaDadosState extends State<TelaDados> {
     );
   }
 
-  Widget _buildCardComCor(String titulo, Color cor) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: EdgeInsets.all(16),
-      child: Center(
-        child: Text(
-          titulo,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Color _corDoSignificado(String? significado) {
-    switch (significado) {
-      case 'Ambiente seco e frio':
-        return Colors.blue.shade300;
-      case 'Ambiente ideal':
-        return Colors.green.shade300;
-      case 'Ambiente quente e úmido':
-        return Colors.red.shade300;
-      case 'Quente e seco':
-        return Colors.orange.shade300;
-      case 'Frio e úmido':
-        return Colors.purple.shade300;
-      default:
-        return Colors.grey.shade300;
-    }
-  }
-
-  Widget _buildCard(String titulo, String valor) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.green.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            titulo,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text(valor, style: TextStyle(fontSize: 20)),
-        ],
-      ),
-    );
-  }
 }

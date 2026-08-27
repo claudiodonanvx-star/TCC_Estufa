@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/iot/Alerta.dart';
+import 'package:flutter_application_1/iot/SensorData.dart';
 import 'package:flutter_application_1/iot/api_service.dart' as iot_api;
+import 'package:flutter_application_1/iot/estufa_inteligencia.dart';
 
 class TelaAlertas extends StatefulWidget {
   final String ipAtual;
@@ -13,9 +15,11 @@ class TelaAlertas extends StatefulWidget {
 
 class _TelaAlertasState extends State<TelaAlertas> {
   List<Alerta> _alertas = [];
+  List<SensorData> _dados = [];
   bool _carregando = true;
   String? _erro;
   String _filtro = 'todos'; // todos | CRITICO | ATENCAO
+  CenarioEstufa _cenario = CenarioEstufa.padrao;
 
   static const _verde = Color(0xFF0E7D63);
   static const _vermelho = Color(0xFFB42318);
@@ -34,9 +38,19 @@ class _TelaAlertasState extends State<TelaAlertas> {
       _erro = null;
     });
     try {
-      final lista = await iot_api.fetchAlertas(widget.ipAtual);
+      final resultados = await Future.wait([
+        iot_api.fetchAlertas(widget.ipAtual),
+        iot_api.fetchDados(widget.ipAtual),
+      ]);
+
+      final listaApi = resultados[0] as List<Alerta>;
+      final dados = resultados[1] as List<SensorData>;
+      final alertasInteligentes = gerarAlertasInteligentes(dados, _cenario);
+      final combinados = [...listaApi, ...alertasInteligentes];
+
       setState(() {
-        _alertas = lista;
+        _alertas = _removerDuplicados(combinados);
+        _dados = dados;
         _carregando = false;
       });
     } catch (e) {
@@ -49,30 +63,31 @@ class _TelaAlertasState extends State<TelaAlertas> {
 
   List<Alerta> get _alertasFiltrados {
     if (_filtro == 'todos') return _alertas;
-    return _alertas.where((a) => a.severidade.toUpperCase() == _filtro).toList();
+    return _alertas
+        .where((a) => a.severidade.toUpperCase() == _filtro)
+        .toList();
   }
 
   int get _totalCriticos => _alertas.where((a) => a.isCritico).length;
   int get _totalAtencao => _alertas.where((a) => !a.isCritico).length;
+  ResumoEstufa get _resumo => analisarEstufa(_dados, _cenario);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _cinzaFundo,
       appBar: AppBar(
-        title: const Text('Alertas'),
+        title: const Text('Alertas & IA'),
         backgroundColor: _verde,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _carregar,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
       body: Column(
         children: [
           _buildResumo(),
+          _buildSelecionarCenario(),
           _buildFiltros(),
           Expanded(child: _buildLista()),
         ],
@@ -81,30 +96,180 @@ class _TelaAlertasState extends State<TelaAlertas> {
   }
 
   Widget _buildResumo() {
+    final resumo = _resumo;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _chip(
-            'Total',
-            _alertas.length.toString(),
-            const Color(0xFF475467),
-            const Color(0xFFF2F4F7),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Resumo inteligente da estufa',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+              ),
+              Chip(
+                label: Text(resumo.status),
+                backgroundColor:
+                    resumo.status == 'Crítico'
+                        ? const Color(0xFFFEF3F2)
+                        : resumo.status == 'Atenção'
+                        ? const Color(0xFFFFFAEB)
+                        : const Color(0xFFE6F8F1),
+                labelStyle: TextStyle(
+                  color:
+                      resumo.status == 'Crítico'
+                          ? _vermelho
+                          : resumo.status == 'Atenção'
+                          ? _laranja
+                          : _verde,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          _chip(
-            'Críticos',
-            _totalCriticos.toString(),
-            _vermelho,
-            const Color(0xFFFEF3F2),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _chip(
+                'Total',
+                _alertas.length.toString(),
+                const Color(0xFF475467),
+                const Color(0xFFF2F4F7),
+              ),
+              _chip(
+                'Críticos',
+                _totalCriticos.toString(),
+                _vermelho,
+                const Color(0xFFFEF3F2),
+              ),
+              _chip(
+                'Atenção',
+                _totalAtencao.toString(),
+                _laranja,
+                const Color(0xFFFFFAEB),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          _chip(
-            'Atenção',
-            _totalAtencao.toString(),
-            _laranja,
-            const Color(0xFFFFFAEB),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _metricCard(
+                'Temp. média',
+                '${resumo.mediaTemperatura.toStringAsFixed(1)}°C',
+                Icons.thermostat_outlined,
+              ),
+              _metricCard(
+                'Umidade',
+                '${resumo.mediaUmidade.toStringAsFixed(1)}%',
+                Icons.water_drop_outlined,
+              ),
+              _metricCard(
+                'Solo',
+                '${resumo.mediaUmidadeSolo.toStringAsFixed(1)}%',
+                Icons.grass,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: _verde, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${resumo.previsaoTemperatura} ${resumo.previsaoUmidade}',
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricCard(String label, String valor, IconData icon) {
+    return Container(
+      width: 104,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: _verde, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            valor,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelecionarCenario() {
+    final cenarios = [
+      CenarioEstufa.padrao,
+      CenarioEstufa.verao,
+      CenarioEstufa.inverno,
+    ];
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cenário de cultivo',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children:
+                cenarios.map((cenario) {
+                  final ativo = _cenario.nome == cenario.nome;
+                  return ChoiceChip(
+                    label: Text(cenario.nome),
+                    selected: ativo,
+                    selectedColor: _verde.withValues(alpha: 0.16),
+                    onSelected: (_) {
+                      setState(() => _cenario = cenario);
+                      _carregar();
+                    },
+                  );
+                }).toList(),
           ),
         ],
       ),
@@ -139,14 +304,17 @@ class _TelaAlertasState extends State<TelaAlertas> {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      child: Row(
-        children: [
-          _filtroBtn('todos', 'Todos'),
-          const SizedBox(width: 8),
-          _filtroBtn('CRITICO', 'Crítico'),
-          const SizedBox(width: 8),
-          _filtroBtn('ATENCAO', 'Atenção'),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filtroBtn('todos', 'Todos'),
+            const SizedBox(width: 8),
+            _filtroBtn('CRITICO', 'Crítico'),
+            const SizedBox(width: 8),
+            _filtroBtn('ATENCAO', 'Atenção'),
+          ],
+        ),
       ),
     );
   }
@@ -203,7 +371,11 @@ class _TelaAlertasState extends State<TelaAlertas> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 56, color: Color(0xFF0E7D63)),
+            Icon(
+              Icons.check_circle_outline,
+              size: 56,
+              color: Color(0xFF0E7D63),
+            ),
             SizedBox(height: 12),
             Text(
               'Nenhum alerta encontrado',
@@ -227,9 +399,8 @@ class _TelaAlertasState extends State<TelaAlertas> {
 
   Widget _buildCard(Alerta alerta) {
     final cor = alerta.isCritico ? _vermelho : _laranja;
-    final bgCor = alerta.isCritico
-        ? const Color(0xFFFEF3F2)
-        : const Color(0xFFFFFAEB);
+    final bgCor =
+        alerta.isCritico ? const Color(0xFFFEF3F2) : const Color(0xFFFFFAEB);
     final icone = _iconeParaTipo(alerta.tipo);
 
     return Container(
@@ -259,7 +430,9 @@ class _TelaAlertasState extends State<TelaAlertas> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: cor,
                         borderRadius: BorderRadius.circular(6),
@@ -286,17 +459,25 @@ class _TelaAlertasState extends State<TelaAlertas> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  alerta.mensagem ?? '${alerta.tipo}: ${alerta.valor.toStringAsFixed(1)}',
+                  alerta.mensagem ??
+                      '${alerta.tipo}: ${alerta.valor.toStringAsFixed(1)}',
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.straighten, size: 12, color: Colors.grey.shade500),
+                    Icon(
+                      Icons.straighten,
+                      size: 12,
+                      color: Colors.grey.shade500,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Faixa: ${alerta.limiteMin.toStringAsFixed(1)} – ${alerta.limiteMax.toStringAsFixed(1)}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
@@ -304,12 +485,18 @@ class _TelaAlertasState extends State<TelaAlertas> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      Icon(Icons.schedule, size: 12, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.schedule,
+                        size: 12,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _formatarData(alerta.geradoEm!),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500),
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
                       ),
                     ],
                   ),
@@ -342,5 +529,15 @@ class _TelaAlertasState extends State<TelaAlertas> {
     } catch (_) {
       return iso.length > 16 ? iso.substring(0, 16) : iso;
     }
+  }
+
+  List<Alerta> _removerDuplicados(List<Alerta> alertas) {
+    final mapa = <String, Alerta>{};
+    for (final alerta in alertas) {
+      final chave =
+          '${alerta.tipo.toUpperCase()}::${alerta.severidade.toUpperCase()}::${alerta.mensagem ?? alerta.valor.toString()}';
+      mapa.putIfAbsent(chave, () => alerta);
+    }
+    return mapa.values.toList();
   }
 }

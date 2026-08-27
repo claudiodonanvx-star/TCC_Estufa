@@ -77,25 +77,59 @@ Future<void> habilitarCultivo(String ipAtual, int id) async {
   }
 }
 
+Future<void> removerCultivo(String ipAtual, int id) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return;
+
+  final response = await http.delete(
+    Uri.parse('$ipAtual/api/cultivos/$id'),
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Accept': 'application/json',
+    },
+  );
+
+  if (response.statusCode != 200 && response.statusCode != 204) {
+    throw Exception('Erro ao remover cultivo');
+  }
+}
+
 Future<Cultivo> criarCultivo(String ipAtual, Map<String, dynamic> cultivoDados) async {
   if (ipAtual.isEmpty || !ipAtual.startsWith('http')) {
     throw Exception('IP inválido para criar cultivo');
   }
 
-  final response = await http.post(
-    Uri.parse('$ipAtual/api/cultivos'),
-    headers: {
-      'ngrok-skip-browser-warning': 'true',
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: json.encode(cultivoDados),
-  );
+  try {
+    final url = Uri.parse('$ipAtual/api/cultivos');
+    print('📤 POST para: $url');
+    print('📋 Payload: ${json.encode(cultivoDados)}');
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    return Cultivo.fromJson(json.decode(response.body));
-  } else {
-    throw Exception('Erro ao criar cultivo: ${response.statusCode}');
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(cultivoDados),
+        )
+        .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw Exception('Timeout ao criar cultivo (30s)'),
+        );
+
+    print('✅ Response status: ${response.statusCode}');
+    print('✅ Response body: ${response.body}');
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Cultivo.fromJson(json.decode(response.body));
+    } else {
+      throw Exception(
+        'Erro ao criar cultivo - Status: ${response.statusCode}\nResposta: ${response.body}',
+      );
+    }
+  } catch (e) {
+    throw Exception('Falha ao cadastrar planta: $e');
   }
 }
 

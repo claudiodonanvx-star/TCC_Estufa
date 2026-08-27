@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/Perfil/perfil_page.dart';
 import 'package:flutter_application_1/iot/TelaDados.dart';
-import 'package:flutter_application_1/profilesPage.dart';
-import 'package:flutter_application_1/projectPage.dart';
-import 'package:flutter_application_1/companyPage.dart';
-import 'package:flutter_application_1/partnershipsPage.dart';
 import 'package:flutter_application_1/cadastro/mainCadastro.dart';
-import 'package:flutter_application_1/vendas/mainCompraEstufa.dart';
 
 void main() {
   runApp(
@@ -59,7 +54,7 @@ class HomePage extends StatefulWidget {
     this.cpfLogado = '',
     this.administrador = false,
     this.pendenciasAprovacao = 0,
-    this.initialIndex = 5,
+    this.initialIndex = 0,
   });
 
   @override
@@ -77,7 +72,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _pendenciasAprovacao = widget.pendenciasAprovacao;
     _entries = _buildEntries();
-    _selectedIndex = widget.initialIndex.clamp(0, 6);
+    _selectedIndex = widget.initialIndex.clamp(0, _entries.length - 1);
   }
 
   void _atualizarPendencias(int quantidade) {
@@ -101,34 +96,9 @@ class _HomePageState extends State<HomePage> {
   List<_MenuEntry> _buildEntries() {
     return [
       _MenuEntry(
-        icon: Icons.shopping_bag_outlined,
-        label: 'Compre Estufas',
-        builder: (_) => MainCompraEstufa(),
-      ),
-      _MenuEntry(
-        icon: Icons.apartment_outlined,
-        label: 'Conheca a Empresa',
-        builder: (_) => CompanyPage(),
-      ),
-      _MenuEntry(
-        icon: Icons.groups_2_outlined,
-        label: 'Desenvolvedores',
-        builder: (_) => ProfilesPage(),
-      ),
-      _MenuEntry(
-        icon: Icons.eco_outlined,
-        label: 'Nosso Projeto',
-        builder: (_) => ProjectPage(),
-      ),
-      _MenuEntry(
-        icon: Icons.event_available_outlined,
-        label: 'Parceiros e Eventos',
-        builder: (_) => PartnershipsPage(),
-      ),
-      _MenuEntry(
         icon: Icons.sensors_outlined,
         label: 'IoT',
-        builder: (_) => TelaDados(),
+        builder: (_) => TelaDados(administrador: widget.administrador),
       ),
       _MenuEntry(
         icon: Icons.person_outline,
@@ -141,14 +111,12 @@ class _HomePageState extends State<HomePage> {
               onPendenciasAtualizadas: _atualizarPendencias,
             ),
       ),
+      _MenuEntry(
+        icon: Icons.computer_outlined,
+        label: 'MSW',
+        builder: (_) => const MonitorSerialWebPage(),
+      ),
     ];
-  }
-
-  List<int> get _quickAccess => const [0, 1, 3, 5, 6];
-
-  int _quickIndexFromSelected() {
-    final idx = _quickAccess.indexOf(_selectedIndex);
-    return idx >= 0 ? idx : 0;
   }
 
   Widget _buildWaveBackground() {
@@ -439,50 +407,52 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 72,
-        selectedIndex: _quickIndexFromSelected(),
-        indicatorColor: _EcoPalette.mint.withValues(alpha: 0.34),
-        backgroundColor: Colors.white,
-        onDestinationSelected:
-            (quickIndex) => _navigateTo(_quickAccess[quickIndex]),
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.shopping_bag_outlined),
-            label: 'Loja',
+    );
+  }
+}
+
+class MonitorSerialWebPage extends StatelessWidget {
+  const MonitorSerialWebPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.apartment_outlined),
-            label: 'Empresa',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.eco_outlined),
-            label: 'Projeto',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.sensors_outlined),
-            label: 'IoT',
-          ),
-          NavigationDestination(
-            icon: Stack(
-              clipBehavior: Clip.none,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.person_outline),
-                if (widget.administrador && _pendenciasAprovacao > 0)
-                  const Positioned(
-                    right: -2,
-                    top: -1,
-                    child: CircleAvatar(
-                      radius: 5,
-                      backgroundColor: Colors.redAccent,
-                    ),
+                Icon(
+                  Icons.computer_outlined,
+                  size: 56,
+                  color: _EcoPalette.deep,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Monitor Serial Web',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: _EcoPalette.text,
                   ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Esta funcionalidade ainda não está disponível.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: _EcoPalette.text),
+                ),
               ],
             ),
-            label: 'Perfil',
           ),
-        ],
+        ),
       ),
     );
   }
@@ -538,4 +508,100 @@ class _WavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class GuiaCultivoPage extends StatelessWidget {
+  const GuiaCultivoPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFEFFAF1),
+      appBar: AppBar(
+        title: const Text('Guia de cultivo'),
+        backgroundColor: const Color(0xFF0E7D63),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCard(
+              title: 'Como usar sua estufa',
+              text:
+                  'Use a estufa para manter temperatura e umidade estáveis, proteger contra pragas e prolongar o ciclo de cultivo.',
+              icon: Icons.thermostat_auto,
+            ),
+            const SizedBox(height: 14),
+            _buildCard(
+              title: 'Parâmetros recomendados',
+              text:
+                  'Temperatura ideal: 20-28°C. Umidade do ar: 60-80%. Umidade do solo: 40-70%. Ajuste conforme o cultivo.',
+              icon: Icons.water_drop,
+            ),
+            const SizedBox(height: 14),
+            _buildCard(
+              title: 'Boas práticas',
+              text:
+                  'Faça rotação de cultivos, posicione a estufa em local com luz adequada e verifique ventilação diária.',
+              icon: Icons.eco,
+            ),
+            const SizedBox(height: 14),
+            _buildCard(
+              title: 'Use os dados do app',
+              text:
+                  'Acesse a aba IoT para ver leituras em tempo real e use o perfil para acompanhar histórico e alertas.',
+              icon: Icons.insights,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required String title,
+    required String text,
+    required IconData icon,
+  }) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 42,
+              width: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E7D63).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: const Color(0xFF0E7D63)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0E7D63),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(text, style: const TextStyle(fontSize: 15, height: 1.5)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
