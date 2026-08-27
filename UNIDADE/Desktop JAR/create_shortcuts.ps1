@@ -5,7 +5,8 @@ Run this script locally by right-click -> Run with PowerShell, or from PowerShel
 #>
 
 # Get current script folder and user's desktop
-$scriptDir = Split-Path -Parent $PSCommandPath
+# Use PSScriptRoot when available for reliable script directory
+$scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition }
 $desktop = [Environment]::GetFolderPath('Desktop')
 
@@ -22,7 +23,7 @@ $shell = New-Object -ComObject WScript.Shell
 foreach ($f in $files) {
     $source = Join-Path $scriptDir $f.Name
     if (-not (Test-Path $source)) {
-        Write-Warning "Arquivo não encontrado: $source — pulando"
+      Write-Warning "Arquivo não encontrado: $source - pulando"
         continue
     }
 
@@ -39,4 +40,4 @@ foreach ($f in $files) {
     }
 }
 
-Write-Host "Concluído. Verifique sua Área de Trabalho." -ForegroundColor Green
+Write-Host "Concluido. Verifique sua Area de Trabalho." -ForegroundColor Green
