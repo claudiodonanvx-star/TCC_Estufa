@@ -93,6 +93,36 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _sairParaAreaTrabalho() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Sair da conta'),
+            content: const Text('Deseja voltar para a tela inicial?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sair'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmar != true || !mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainCadastro()),
+      (_) => false,
+    );
+  }
+
   List<_MenuEntry> _buildEntries() {
     return [
       _MenuEntry(
@@ -271,6 +301,24 @@ class _HomePageState extends State<HomePage> {
                   ),
                 );
               },
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.logout_rounded, color: Colors.red),
+                  title: const Text(
+                    'Sair',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('Voltar para a area de trabalho'),
+                  onTap: _sairParaAreaTrabalho,
+                ),
+              ),
             ),
           ),
         ],

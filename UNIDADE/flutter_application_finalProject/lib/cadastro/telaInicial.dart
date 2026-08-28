@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter_application_1/cadastro/api_service.dart';
 import 'package:flutter_application_1/cadastro/ip_util.dart';
 import 'package:flutter_application_1/cadastro/api_settings.dart';
@@ -1175,332 +1176,354 @@ class _TelainicialState extends State<Telainicial>
               );
             }
 
+            final compactHeight = constraints.maxHeight < 760;
+            final horizontalPadding = constraints.maxWidth < 380 ? 18.0 : 24.0;
+            final heroSize = compactHeight ? 170.0 : 200.0;
+            final sloganFontSize = compactHeight ? 18.0 : 20.0;
+            final bottomPadding = math.max(
+              16.0,
+              MediaQuery.of(context).viewPadding.bottom + 12,
+            );
+
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              // ── Top bar ──────────────────────────────────────────
-              FadeTransition(
-                opacity: _logoFade,
-                child: Row(
-                  children: [
-                    Hero(
-                      tag: 'auth-logo',
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.70),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const _AnimatedPlantLogo(size: 42),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'EstufaSmart',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: _P.dark,
-                      ),
-                    ),
-                  ],
-                ),
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                0,
               ),
-
-              const Spacer(),
-
-              // ── Hero icon cluster ─────────────────────────────────
-              FadeTransition(
-                opacity: _logoFade,
-                child: ScaleTransition(
-                  scale: _logoScale,
-                  child: Center(
-                    child: SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: Stack(
-                        alignment: Alignment.center,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: bottomPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FadeTransition(
+                      opacity: _logoFade,
+                      child: Row(
                         children: [
-                          Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _P.mint.withValues(alpha: 0.18),
-                            ),
-                          ),
-                          Container(
-                            width: 148,
-                            height: 148,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _P.mint.withValues(alpha: 0.28),
-                            ),
-                          ),
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [_P.deep, _P.dark],
+                          Hero(
+                            tag: 'auth-logo',
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.70),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                            ),
-                            child: const Icon(
-                              Icons.eco_rounded,
-                              size: 52,
-                              color: Colors.white,
+                              child: const _AnimatedPlantLogo(size: 42),
                             ),
                           ),
-                          // Satellite icons
-                          Positioned(
-                            top: 16,
-                            right: 24,
-                            child: _MiniIconBadge(
-                              icon: Icons.thermostat_rounded,
-                              color: _P.deep,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 22,
-                            right: 18,
-                            child: _MiniIconBadge(
-                              icon: Icons.water_drop_rounded,
-                              color: const Color(0xFF3BA8C5),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 18,
-                            left: 22,
-                            child: _MiniIconBadge(
-                              icon: Icons.wb_sunny_rounded,
-                              color: const Color(0xFFE6A817),
-                            ),
-                          ),
-                          Positioned(
-                            top: 20,
-                            left: 20,
-                            child: _MiniIconBadge(
-                              icon: Icons.sensors_rounded,
-                              color: _P.mint,
+                          const SizedBox(width: 12),
+                          const Flexible(
+                            child: Text(
+                              'EstufaSmart',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: _P.dark,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 26),
-
-              SlideTransition(
-                position: _titleSlide,
-                child: FadeTransition(
-                  opacity: _copyFade,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1A7E69), Color(0xFF0F5E4F)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _P.dark.withValues(alpha: 0.25),
-                          blurRadius: 24,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Tempestades passam.\nQuem é autorregulável floresce em qualquer tempo.',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
+                    SizedBox(height: compactHeight ? 12 : 18),
+                    FadeTransition(
+                      opacity: _logoFade,
+                      child: ScaleTransition(
+                        scale: _logoScale,
+                        child: Center(
+                          child: SizedBox(
+                            width: heroSize,
+                            height: heroSize,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: heroSize,
+                                  height: heroSize,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _P.mint.withValues(alpha: 0.18),
+                                  ),
+                                ),
+                                Container(
+                                  width: heroSize * 0.74,
+                                  height: heroSize * 0.74,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _P.mint.withValues(alpha: 0.28),
+                                  ),
+                                ),
+                                Container(
+                                  width: heroSize * 0.50,
+                                  height: heroSize * 0.50,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [_P.deep, _P.dark],
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.eco_rounded,
+                                    size: heroSize * 0.26,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: heroSize * 0.08,
+                                  right: heroSize * 0.12,
+                                  child: _MiniIconBadge(
+                                    icon: Icons.thermostat_rounded,
+                                    color: _P.deep,
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: heroSize * 0.11,
+                                  right: heroSize * 0.09,
+                                  child: _MiniIconBadge(
+                                    icon: Icons.water_drop_rounded,
+                                    color: const Color(0xFF3BA8C5),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: heroSize * 0.09,
+                                  left: heroSize * 0.11,
+                                  child: _MiniIconBadge(
+                                    icon: Icons.wb_sunny_rounded,
+                                    color: const Color(0xFFE6A817),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: heroSize * 0.10,
+                                  left: heroSize * 0.10,
+                                  child: _MiniIconBadge(
+                                    icon: Icons.sensors_rounded,
+                                    color: _P.mint,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Container(
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SlideTransition(
+                      position: _titleSlide,
+                      child: FadeTransition(
+                        opacity: _copyFade,
+                        child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.28),
+                            borderRadius: BorderRadius.circular(28),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF1A7E69), Color(0xFF0F5E4F)],
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _P.dark.withValues(alpha: 0.25),
+                                blurRadius: 24,
+                                offset: const Offset(0, 14),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Atendimento rápido',
+                              Text(
+                                'Tempestades passam.\nQuem é autorregulável floresce em qualquer tempo.',
                                 style: TextStyle(
                                   color: Colors.white,
+                                  fontSize: sloganFontSize,
                                   fontWeight: FontWeight.w700,
+                                  height: 1.35,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              const Row(
-                                children: [
-                                  Icon(Icons.phone, size: 16, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '(11) 4002-8922 • (19) 99999-1234',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              const Row(
-                                children: [
-                                  Icon(Icons.mail, size: 16, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'suporte@estufasmart.com',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: _duvidaRapidaController,
-                                maxLines: 2,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'Digite sua dúvida...',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.75),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.08),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withValues(alpha: 0.30),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withValues(alpha: 0.30),
-                                    ),
-                                  ),
-                                  focusedBorder: const OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                                    borderSide: BorderSide(color: Colors.white, width: 1.4),
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.28),
                                   ),
                                 ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Atendimento rápido',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.phone, size: 16, color: Colors.white),
+                                        SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            '(11) 4002-8922 • (19) 99999-1234',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.mail, size: 16, color: Colors.white),
+                                        SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'suporte@estufasmart.com',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextField(
+                                      controller: _duvidaRapidaController,
+                                      maxLines: 2,
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: 'Digite sua dúvida...',
+                                        hintStyle: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.75),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.white.withValues(alpha: 0.08),
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Colors.white.withValues(alpha: 0.30),
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Colors.white.withValues(alpha: 0.30),
+                                          ),
+                                        ),
+                                        focusedBorder: const OutlineInputBorder(
+                                          borderRadius: BorderRadius.all(
+                                            Radius.circular(12),
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.white,
+                                            width: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: _enviarDuvidaRapida,
+                                        icon: const Icon(Icons.send_rounded, size: 16),
+                                        label: const Text('Enviar dúvida'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  onPressed: _enviarDuvidaRapida,
-                                  icon: const Icon(Icons.send_rounded, size: 16),
-                                  label: const Text('Enviar dúvida'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                  ),
+                              const SizedBox(height: 12),
+                              ScaleTransition(
+                                scale: _buttonScale,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 50,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            _ecoRoute(LoginScreen()),
+                                          ),
+                                          icon: const Icon(Icons.login_rounded),
+                                          label: const Text('Entrar'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor: _P.dark,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(28),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 50,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            _ecoRoute(CadastroClientes()),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.person_add_alt_1_outlined,
+                                          ),
+                                          label: const Text('Criar conta'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.white,
+                                            side: const BorderSide(
+                                              color: Colors.white,
+                                              width: 1.6,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(28),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ScaleTransition(
-                          scale: _buttonScale,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 50,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      _ecoRoute(LoginScreen()),
-                                    ),
-                                    icon: const Icon(Icons.login_rounded),
-                                    label: const Text('Entrar'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: _P.dark,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(28),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 50,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      _ecoRoute(CadastroClientes()),
-                                    ),
-                                    icon: const Icon(Icons.person_add_alt_1_outlined),
-                                    label: const Text('Criar conta'),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: const BorderSide(
-                                        color: Colors.white,
-                                        width: 1.6,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(28),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-                ],
               ),
             );
           },
