@@ -1,17 +1,23 @@
 package com.example.apiProjeto.controller;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.apiProjeto.dto.RespostaSensorDTO;
 import com.example.apiProjeto.model.Cultivo;
 import com.example.apiProjeto.model.SensorData;
 import com.example.apiProjeto.repository.CultivoRepository;
 import com.example.apiProjeto.repository.SensorDataRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.example.apiProjeto.service.AtuadorService;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -29,6 +35,9 @@ public class ValidacaoController {
 
     @Autowired
     private SensorDataRepository sensorRepository;
+
+    @Autowired
+    private AtuadorService atuadorService;
 
     @PostMapping("/validar")
     public RespostaSensorDTO validarLeitura(@RequestBody SensorData dados) {
@@ -112,6 +121,7 @@ public class ValidacaoController {
 
         dados.setSignificado(significado);
         sensorRepository.save(dados);
+        atuadorService.atualizarLeitura(cultivo, dados);
 
         return new RespostaSensorDTO(significado, r, g, b, alerta);
     }
