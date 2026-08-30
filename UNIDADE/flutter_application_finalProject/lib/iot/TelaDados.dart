@@ -26,6 +26,9 @@ class _TelaDadosState extends State<TelaDados> {
   Timer? _timer;
   Timer? _timerKeepAlive;
   int _contador = 20;
+  bool _modoAutomatico = false;
+  bool _bombaLigada = false;
+  bool _coolerLigado = false;
 
   Cultivo? _cultivoAtual;
   List<Cultivo> _cultivosDisponiveis = [];
@@ -51,6 +54,7 @@ class _TelaDadosState extends State<TelaDados> {
         });
         _buscarDados();
         _buscarCultivoAtual();
+        _buscarEstadoAtuadores();
       } else {
         print('❌ IP lido do arquivo não respondeu: $ip');
       }
@@ -76,11 +80,13 @@ class _TelaDadosState extends State<TelaDados> {
     // Faz ping a cada 15 minutos para manter a API acordada no Render
     _timerKeepAlive = Timer.periodic(const Duration(minutes: 15), (timer) {
       if (ipAtual.isNotEmpty && ipAtual.startsWith('http')) {
-        pingApiKeepAlive(ipAtual).then((_) {
-          print('✅ Keep-alive: API respondeu');
-        }).catchError((e) {
-          print('⚠️ Keep-alive falhou: $e');
-        });
+        pingApiKeepAlive(ipAtual)
+            .then((_) {
+              print('✅ Keep-alive: API respondeu');
+            })
+            .catchError((e) {
+              print('⚠️ Keep-alive falhou: $e');
+            });
       }
     });
   }
@@ -119,6 +125,40 @@ class _TelaDadosState extends State<TelaDados> {
     }
   }
 
+  Future<void> _buscarEstadoAtuadores() async {
+    if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return;
+    try {
+      final estado = await fetchEstadoAtuadores(ipAtual);
+      if (!mounted) return;
+      setState(() {
+        _modoAutomatico = estado['modoAutomatico'] == true;
+        _bombaLigada = estado['bombaLigada'] == true;
+        _coolerLigado = estado['coolerLigado'] == true;
+      });
+    } catch (_) {}
+  }
+
+  void _atualizarEstadoAtuadores(Map<String, dynamic> estado) {
+    if (!mounted) return;
+    setState(() {
+      _modoAutomatico = estado['modoAutomatico'] == true;
+      _bombaLigada = estado['bombaLigada'] == true;
+      _coolerLigado = estado['coolerLigado'] == true;
+    });
+  }
+
+  Future<void> _alterarModoAutomatico(bool ativo) async {
+    try {
+      final estado = await definirModoAutomatico(ipAtual, ativo);
+      _atualizarEstadoAtuadores(estado);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao alterar modo: $e')));
+    }
+  }
+
   Future<void> _buscarCultivosDisponiveis() async {
     if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return;
     try {
@@ -144,7 +184,8 @@ class _TelaDadosState extends State<TelaDados> {
 
   bool _podeNotificar(String chave) {
     final ultima = _ultimaNotificacao[chave];
-    return ultima == null || DateTime.now().difference(ultima) > _notificacaoCooldown;
+    return ultima == null ||
+        DateTime.now().difference(ultima) > _notificacaoCooldown;
   }
 
   void _registrarNotificacao(String chave) {
@@ -162,12 +203,18 @@ class _TelaDadosState extends State<TelaDados> {
     final cultivo = _cultivoAtual!;
 
     const margemPercentual = 0.12;
-    final tempMargin = (cultivo.temperaturaMaxima - cultivo.temperaturaMinima) * margemPercentual;
-    final soloMargin = (cultivo.umidadeSoloMaxima - cultivo.umidadeSoloMinima) * margemPercentual;
+    final tempMargin =
+        (cultivo.temperaturaMaxima - cultivo.temperaturaMinima) *
+        margemPercentual;
+    final soloMargin =
+        (cultivo.umidadeSoloMaxima - cultivo.umidadeSoloMinima) *
+        margemPercentual;
 
-    final tempProximaLimite = (temp - cultivo.temperaturaMinima).abs() <= tempMargin ||
+    final tempProximaLimite =
+        (temp - cultivo.temperaturaMinima).abs() <= tempMargin ||
         (cultivo.temperaturaMaxima - temp).abs() <= tempMargin;
-    final soloProximoLimite = (solo - cultivo.umidadeSoloMinima).abs() <= soloMargin ||
+    final soloProximoLimite =
+        (solo - cultivo.umidadeSoloMinima).abs() <= soloMargin ||
         (cultivo.umidadeSoloMaxima - solo).abs() <= soloMargin;
 
     if (tempProximaLimite && _podeNotificar('TEMPERATURA')) {
@@ -175,7 +222,8 @@ class _TelaDadosState extends State<TelaDados> {
       await NotificationService.showNotification(
         id: 1,
         title: 'Temperatura em atenção',
-        body: 'A temperatura da estufa está próxima dos limites para ${cultivo.nome}. Verifique o controle térmico.',
+        body:
+            'A temperatura da estufa está próxima dos limites para ${cultivo.nome}. Verifique o controle térmico.',
       );
     }
 
@@ -184,7 +232,8 @@ class _TelaDadosState extends State<TelaDados> {
       await NotificationService.showNotification(
         id: 2,
         title: 'Umidade do solo em atenção',
-        body: 'A umidade do solo está próxima dos limites para ${cultivo.nome}. Cheque irrigação ou drenagem.',
+        body:
+            'A umidade do solo está próxima dos limites para ${cultivo.nome}. Cheque irrigação ou drenagem.',
       );
     }
   }
@@ -235,32 +284,44 @@ class _TelaDadosState extends State<TelaDados> {
                     TextField(
                       controller: temperaturaMinimaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Temp. mínima (°C)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Temp. mínima (°C)',
+                      ),
                     ),
                     TextField(
                       controller: temperaturaMaximaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Temp. máxima (°C)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Temp. máxima (°C)',
+                      ),
                     ),
                     TextField(
                       controller: umidadeMinimaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Umidade mínima (%)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Umidade mínima (%)',
+                      ),
                     ),
                     TextField(
                       controller: umidadeMaximaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Umidade máxima (%)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Umidade máxima (%)',
+                      ),
                     ),
                     TextField(
                       controller: umidadeSoloMinimaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Umidade do solo mínima (%)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Umidade do solo mínima (%)',
+                      ),
                     ),
                     TextField(
                       controller: umidadeSoloMaximaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Umidade do solo máxima (%)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Umidade do solo máxima (%)',
+                      ),
                     ),
                     if (errorMessage != null) ...[
                       const SizedBox(height: 12),
@@ -280,94 +341,121 @@ class _TelaDadosState extends State<TelaDados> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final nome = nomeController.text.trim();
-                          final tipo = tipoController.text.trim();
-                          final temperaturaMinima = double.tryParse(
-                              temperaturaMinimaController.text.replaceAll(',', '.'));
-                          final temperaturaMaxima = double.tryParse(
-                              temperaturaMaximaController.text.replaceAll(',', '.'));
-                          final umidadeMinima = double.tryParse(
-                              umidadeMinimaController.text.replaceAll(',', '.'));
-                          final umidadeMaxima = double.tryParse(
-                              umidadeMaximaController.text.replaceAll(',', '.'));
-                          final umidadeSoloMinima = double.tryParse(
-                              umidadeSoloMinimaController.text.replaceAll(',', '.'));
-                          final umidadeSoloMaxima = double.tryParse(
-                              umidadeSoloMaximaController.text.replaceAll(',', '.'));
-
-                          if (nome.isEmpty || tipo.isEmpty) {
-                            setState(() {
-                              errorMessage = 'Nome e tipo são obrigatórios.';
-                            });
-                            return;
-                          }
-
-                          if ([
-                                temperaturaMinima,
-                                temperaturaMaxima,
-                                umidadeMinima,
-                                umidadeMaxima,
-                                umidadeSoloMinima,
-                                umidadeSoloMaxima,
-                              ].contains(null)) {
-                            setState(() {
-                              errorMessage =
-                                  'Informe valores numéricos válidos para todos os parâmetros.';
-                            });
-                            return;
-                          }
-
-                          setState(() {
-                            isSubmitting = true;
-                            errorMessage = null;
-                          });
-
-                          try {
-                            await criarCultivo(ipAtual, {
-                              'nome': nome,
-                              'tipo': tipo,
-                              'temperaturaMinima': temperaturaMinima,
-                              'temperaturaMaxima': temperaturaMaxima,
-                              'umidadeMinima': umidadeMinima,
-                              'umidadeMaxima': umidadeMaxima,
-                              'umidadeSoloMinima': umidadeSoloMinima,
-                              'umidadeSoloMaxima': umidadeSoloMaxima,
-                            });
-
-                            if (!mounted) return;
-
-                            final navigator = Navigator.of(baseContext, rootNavigator: true);
-                            if (dialogAtivo && navigator.canPop()) {
-                              dialogAtivo = false;
-                              navigator.pop();
-                            }
-
-                            final messenger = ScaffoldMessenger.maybeOf(baseContext);
-                            messenger?.showSnackBar(
-                              const SnackBar(
-                                content: Text('Planta cadastrada com sucesso.'),
-                                duration: Duration(seconds: 2),
+                  onPressed:
+                      isSubmitting
+                          ? null
+                          : () async {
+                            final nome = nomeController.text.trim();
+                            final tipo = tipoController.text.trim();
+                            final temperaturaMinima = double.tryParse(
+                              temperaturaMinimaController.text.replaceAll(
+                                ',',
+                                '.',
+                              ),
+                            );
+                            final temperaturaMaxima = double.tryParse(
+                              temperaturaMaximaController.text.replaceAll(
+                                ',',
+                                '.',
+                              ),
+                            );
+                            final umidadeMinima = double.tryParse(
+                              umidadeMinimaController.text.replaceAll(',', '.'),
+                            );
+                            final umidadeMaxima = double.tryParse(
+                              umidadeMaximaController.text.replaceAll(',', '.'),
+                            );
+                            final umidadeSoloMinima = double.tryParse(
+                              umidadeSoloMinimaController.text.replaceAll(
+                                ',',
+                                '.',
+                              ),
+                            );
+                            final umidadeSoloMaxima = double.tryParse(
+                              umidadeSoloMaximaController.text.replaceAll(
+                                ',',
+                                '.',
                               ),
                             );
 
-                            await _buscarCultivosDisponiveis();
-                          } catch (e) {
-                            if (dialogAtivo && mounted) {
+                            if (nome.isEmpty || tipo.isEmpty) {
                               setState(() {
-                                errorMessage = 'Falha ao cadastrar planta: $e';
+                                errorMessage = 'Nome e tipo são obrigatórios.';
                               });
+                              return;
                             }
-                          } finally {
-                            if (dialogAtivo && mounted) {
+
+                            if ([
+                              temperaturaMinima,
+                              temperaturaMaxima,
+                              umidadeMinima,
+                              umidadeMaxima,
+                              umidadeSoloMinima,
+                              umidadeSoloMaxima,
+                            ].contains(null)) {
                               setState(() {
-                                isSubmitting = false;
+                                errorMessage =
+                                    'Informe valores numéricos válidos para todos os parâmetros.';
                               });
+                              return;
                             }
-                          }
-                        },
+
+                            setState(() {
+                              isSubmitting = true;
+                              errorMessage = null;
+                            });
+
+                            try {
+                              await criarCultivo(ipAtual, {
+                                'nome': nome,
+                                'tipo': tipo,
+                                'temperaturaMinima': temperaturaMinima,
+                                'temperaturaMaxima': temperaturaMaxima,
+                                'umidadeMinima': umidadeMinima,
+                                'umidadeMaxima': umidadeMaxima,
+                                'umidadeSoloMinima': umidadeSoloMinima,
+                                'umidadeSoloMaxima': umidadeSoloMaxima,
+                              });
+
+                              if (!mounted) return;
+
+                              final navigator = Navigator.of(
+                                baseContext,
+                                rootNavigator: true,
+                              );
+                              if (dialogAtivo && navigator.canPop()) {
+                                dialogAtivo = false;
+                                navigator.pop();
+                              }
+
+                              final messenger = ScaffoldMessenger.maybeOf(
+                                baseContext,
+                              );
+                              messenger?.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Planta cadastrada com sucesso.',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+
+                              await _buscarCultivosDisponiveis();
+                            } catch (e) {
+                              if (dialogAtivo && mounted) {
+                                setState(() {
+                                  errorMessage =
+                                      'Falha ao cadastrar planta: $e';
+                                });
+                              }
+                            } finally {
+                              if (dialogAtivo && mounted) {
+                                setState(() {
+                                  isSubmitting = false;
+                                });
+                              }
+                            }
+                          },
                   child: const Text('Salvar'),
                 ),
               ],
@@ -382,16 +470,19 @@ class _TelaDadosState extends State<TelaDados> {
     final ipController = TextEditingController(
       text: ipAtual.isNotEmpty ? ipAtual : 'https://api-estufa.onrender.com',
     );
-    String modoApi = ipAtual.contains('localhost') || ipAtual.contains('127.0.0.1')
-        ? 'local'
-        : 'hospedada';
+    String modoApi =
+        ipAtual.contains('localhost') || ipAtual.contains('127.0.0.1')
+            ? 'local'
+            : 'hospedada';
     bool conexaoOk = false;
     String? mensagemTeste;
 
     String resolverUrl(String valor, String tipo) {
       var base = valor.trim();
       if (base.isEmpty) {
-        return tipo == 'local' ? 'http://localhost:8080' : 'https://api-estufa.onrender.com';
+        return tipo == 'local'
+            ? 'http://localhost:8080'
+            : 'https://api-estufa.onrender.com';
       }
 
       if (!base.startsWith('http://') && !base.startsWith('https://')) {
@@ -409,114 +500,125 @@ class _TelaDadosState extends State<TelaDados> {
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Configurar API da estufa'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: modoApi,
-                  decoration: const InputDecoration(labelText: 'Origem da API'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'hospedada',
-                      child: Text('Hospedada (Render)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'local',
-                      child: Text('Local (localhost)'),
-                    ),
-                  ],
-                  onChanged: (valor) {
-                    if (valor != null) {
-                      setDialogState(() {
-                        modoApi = valor;
-                        if (valor == 'local' && ipController.text.isEmpty) {
-                          ipController.text = 'http://localhost:8080';
-                        } else if (valor == 'hospedada' && ipController.text.isEmpty) {
-                          ipController.text = 'https://api-estufa.onrender.com';
+          builder:
+              (context, setDialogState) => AlertDialog(
+                title: const Text('Configurar API da estufa'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: modoApi,
+                      decoration: const InputDecoration(
+                        labelText: 'Origem da API',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'hospedada',
+                          child: Text('Hospedada (Render)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'local',
+                          child: Text('Local (localhost)'),
+                        ),
+                      ],
+                      onChanged: (valor) {
+                        if (valor != null) {
+                          setDialogState(() {
+                            modoApi = valor;
+                            if (valor == 'local' && ipController.text.isEmpty) {
+                              ipController.text = 'http://localhost:8080';
+                            } else if (valor == 'hospedada' &&
+                                ipController.text.isEmpty) {
+                              ipController.text =
+                                  'https://api-estufa.onrender.com';
+                            }
+                          });
                         }
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ipController,
-                  decoration: InputDecoration(
-                    labelText: modoApi == 'local' ? 'URL local' : 'URL hospedada',
-                    hintText: modoApi == 'local'
-                        ? 'http://localhost:8080'
-                        : 'https://api-estufa.onrender.com',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  modoApi == 'local'
-                      ? 'Use essa opção quando a API estiver rodando na sua máquina.'
-                      : 'Use essa opção para a API pública hospedada no Render.',
-                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                if (mensagemTeste != null)
-                  Text(
-                    mensagemTeste!,
-                    style: TextStyle(
-                      color: conexaoOk ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
+                      },
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ipController,
+                      decoration: InputDecoration(
+                        labelText:
+                            modoApi == 'local' ? 'URL local' : 'URL hospedada',
+                        hintText:
+                            modoApi == 'local'
+                                ? 'http://localhost:8080'
+                                : 'https://api-estufa.onrender.com',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      modoApi == 'local'
+                          ? 'Use essa opção quando a API estiver rodando na sua máquina.'
+                          : 'Use essa opção para a API pública hospedada no Render.',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    if (mensagemTeste != null)
+                      Text(
+                        mensagemTeste!,
+                        style: TextStyle(
+                          color: conexaoOk ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
                   ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final urlTeste = resolverUrl(ipController.text, modoApi);
-                  try {
-                    final dados = await fetchDados(urlTeste);
-                    if (dados.isNotEmpty &&
-                        // ignore: unnecessary_type_check, unnecessary_null_comparison
-                        dados.every(
-                          // ignore: unnecessary_type_check
-                          (d) => d is SensorData && d.temperatura != null,
-                        )) {
-                      setDialogState(() {
-                        conexaoOk = true;
-                        mensagemTeste = '✅ Conexão bem-sucedida!';
-                      });
-                    } else {
-                      throw Exception('Resposta inválida');
-                    }
-                  } catch (e) {
-                    setDialogState(() {
-                      conexaoOk = false;
-                      mensagemTeste = '❌ Falha na conexão';
-                    });
-                  }
-                },
-                child: const Text('Testar conexão'),
-              ),
-              ElevatedButton(
-                onPressed: conexaoOk
-                    ? () {
-                        final urlFinal = resolverUrl(ipController.text, modoApi);
-                        this.setState(() {
-                          ipAtual = urlFinal;
-                          _contador = 20;
+                  TextButton(
+                    onPressed: () async {
+                      final urlTeste = resolverUrl(ipController.text, modoApi);
+                      try {
+                        final dados = await fetchDados(urlTeste);
+                        if (dados.isNotEmpty &&
+                            // ignore: unnecessary_type_check, unnecessary_null_comparison
+                            dados.every(
+                              // ignore: unnecessary_type_check
+                              (d) => d is SensorData && d.temperatura != null,
+                            )) {
+                          setDialogState(() {
+                            conexaoOk = true;
+                            mensagemTeste = '✅ Conexão bem-sucedida!';
+                          });
+                        } else {
+                          throw Exception('Resposta inválida');
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          conexaoOk = false;
+                          mensagemTeste = '❌ Falha na conexão';
                         });
-                        _buscarDados();
-                        _buscarCultivoAtual();
-                        Navigator.pop(context);
                       }
-                    : null,
-                child: const Text('Salvar'),
+                    },
+                    child: const Text('Testar conexão'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        conexaoOk
+                            ? () {
+                              final urlFinal = resolverUrl(
+                                ipController.text,
+                                modoApi,
+                              );
+                              this.setState(() {
+                                ipAtual = urlFinal;
+                                _contador = 20;
+                              });
+                              _buscarDados();
+                              _buscarCultivoAtual();
+                              Navigator.pop(context);
+                            }
+                            : null,
+                    child: const Text('Salvar'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       },
     );
@@ -535,21 +637,22 @@ class _TelaDadosState extends State<TelaDados> {
 
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remover planta'),
-        content: Text('Deseja remover "${cultivo.nome}" do sistema?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Remover planta'),
+            content: Text('Deseja remover "${cultivo.nome}" do sistema?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Remover'),
+              ),
+            ],
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
     );
 
     if (confirmar != true || !mounted) return;
@@ -560,7 +663,9 @@ class _TelaDadosState extends State<TelaDados> {
       await _buscarCultivoAtual();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Planta "${cultivo.nome}" removida com sucesso.')),
+        SnackBar(
+          content: Text('Planta "${cultivo.nome}" removida com sucesso.'),
+        ),
       );
       Navigator.of(context).pop();
     } catch (e) {
@@ -756,7 +861,9 @@ class _TelaDadosState extends State<TelaDados> {
                               if (removiveis.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Não há plantas disponíveis para remoção.'),
+                                    content: Text(
+                                      'Não há plantas disponíveis para remoção.',
+                                    ),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -825,24 +932,25 @@ class _TelaDadosState extends State<TelaDados> {
                             trailing:
                                 widget.administrador && !isAtivo
                                     ? IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                        onPressed: () => _removerCultivoConfirmado(cultivo),
-                                      )
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed:
+                                          () => _removerCultivoConfirmado(
+                                            cultivo,
+                                          ),
+                                    )
                                     : (isAtivo
                                         ? const Text(
-                                            'Atual',
-                                            style: TextStyle(
-                                              color: Color(0xFF0E7D63),
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          )
+                                          'Atual',
+                                          style: TextStyle(
+                                            color: Color(0xFF0E7D63),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        )
                                         : const Icon(Icons.swap_horiz)),
                             onTap: () async {
-                              if (widget.administrador && !isAtivo) {
-                                await _removerCultivoConfirmado(cultivo);
-                                return;
-                              }
-
                               if (isAtivo) return;
 
                               await _alterarCultivo(cultivo.id);
@@ -900,13 +1008,18 @@ class _TelaDadosState extends State<TelaDados> {
                     ),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.local_florist,
-                          size: 18, color: Colors.white),
+                      const Icon(
+                        Icons.local_florist,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 6),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 120),
@@ -914,12 +1027,17 @@ class _TelaDadosState extends State<TelaDados> {
                           _cultivoAtual?.nome ?? 'Cultivo',
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.expand_more,
-                          size: 18, color: Colors.white),
+                      const Icon(
+                        Icons.expand_more,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ],
                   ),
                 ),
@@ -944,7 +1062,9 @@ class _TelaDadosState extends State<TelaDados> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   color: Colors.grey.shade200,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -956,113 +1076,120 @@ class _TelaDadosState extends State<TelaDados> {
                   ),
                 ),
                 Expanded(
-                  child: _carregando
-                      ? const Center(child: CircularProgressIndicator())
-                      : _erro != null
+                  child:
+                      _carregando
+                          ? const Center(child: CircularProgressIndicator())
+                          : _erro != null
                           ? Center(child: Text('Erro: $_erro'))
                           : SingleChildScrollView(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                children: [
-                                  // Score de saúde
-                                  _buildScoreSaude(saude),
-                                  const SizedBox(height: 14),
-                                  // Cards de leitura com gauge
-                                  GridView.count(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    children: [
-                                      _buildGaugeCard(
-                                        '🌡️ Temperatura',
-                                        ultimo?.temperatura,
-                                        _cultivoAtual?.temperaturaMinima,
-                                        _cultivoAtual?.temperaturaMaxima,
-                                        '°C',
-                                        Colors.red.shade400,
-                                      ),
-                                      _buildGaugeCard(
-                                        '💧 Umidade',
-                                        ultimo?.umidade,
-                                        _cultivoAtual?.umidadeMinima,
-                                        _cultivoAtual?.umidadeMaxima,
-                                        '%',
-                                        Colors.blue.shade400,
-                                      ),
-                                      _buildGaugeCard(
-                                        '🌱 Umid. Solo',
-                                        ultimo?.umidadeSolo,
-                                        _cultivoAtual?.umidadeSoloMinima,
-                                        _cultivoAtual?.umidadeSoloMaxima,
-                                        '%',
-                                        Colors.brown.shade400,
-                                      ),
-                                      _buildFeatureCard(
-                                        titulo: 'CO2',
-                                        subtitulo: 'Sensor',
-                                        valor: 'Em breve',
-                                        icone: Icons.cloud,
-                                        cor: Colors.purple.shade400,
-                                        descricao: 'Sensor',
-                                      ),
-                                      _buildFeatureCard(
-                                        titulo: 'Cooler',
-                                        subtitulo: 'Relé',
-                                        valor: 'Aguardando',
-                                        icone: Icons.air,
-                                        cor: Colors.lightBlue.shade400,
-                                        onTap: () => _confirmarAcaoRele(
-                                          titulo: 'Cooler',
-                                        ),
-                                      ),
-                                      _buildFeatureCard(
-                                        titulo: 'Bomba',
-                                        subtitulo: 'Relé',
-                                        valor: 'Aguardando',
-                                        icone: Icons.water_drop,
-                                        cor: Colors.blue.shade400,
-                                        onTap: () => _confirmarAcaoRele(
-                                          titulo: 'Bomba',
-                                        ),
-                                      ),
-                                      _buildFeatureCard(
-                                        titulo: 'Aquecimento',
-                                        subtitulo: 'Relé',
-                                        valor: 'A definir',
-                                        icone: Icons.local_fire_department,
-                                        cor: Colors.orange.shade400,
-                                        onTap: () => _confirmarAcaoRele(
-                                          titulo: 'Aquecimento',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  // Últimas leituras
-                                  if (_dados.length > 1) ...[
-                                    const SizedBox(height: 14),
-                                    _buildUltimasLeituras(),
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              children: [
+                                // Score de saúde
+                                _buildScoreSaude(saude),
+                                const SizedBox(height: 14),
+                                // Cards de leitura com gauge
+                                GridView.count(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  children: [
+                                    _buildGaugeCard(
+                                      '🌡️ Temperatura',
+                                      ultimo?.temperatura,
+                                      _cultivoAtual?.temperaturaMinima,
+                                      _cultivoAtual?.temperaturaMaxima,
+                                      '°C',
+                                      Colors.red.shade400,
+                                    ),
+                                    _buildGaugeCard(
+                                      '💧 Umidade',
+                                      ultimo?.umidade,
+                                      _cultivoAtual?.umidadeMinima,
+                                      _cultivoAtual?.umidadeMaxima,
+                                      '%',
+                                      Colors.blue.shade400,
+                                    ),
+                                    _buildGaugeCard(
+                                      '🌱 Umid. Solo',
+                                      ultimo?.umidadeSolo,
+                                      _cultivoAtual?.umidadeSoloMinima,
+                                      _cultivoAtual?.umidadeSoloMaxima,
+                                      '%',
+                                      Colors.brown.shade400,
+                                    ),
+                                    _buildFeatureCard(
+                                      titulo: 'CO2',
+                                      subtitulo: 'Sensor',
+                                      valor: 'Em breve',
+                                      icone: Icons.cloud,
+                                      cor: Colors.purple.shade400,
+                                      descricao: 'Sensor',
+                                    ),
+                                    _buildFeatureCard(
+                                      titulo: 'Cooler',
+                                      subtitulo: 'Relé',
+                                      valor:
+                                          _coolerLigado
+                                              ? 'Ligado'
+                                              : 'Desligado',
+                                      icone: Icons.air,
+                                      cor: Colors.lightBlue.shade400,
+                                      onTap:
+                                          () => _confirmarAcaoRele(
+                                            titulo: 'Cooler',
+                                          ),
+                                    ),
+                                    _buildFeatureCard(
+                                      titulo: 'Bomba',
+                                      subtitulo: 'Relé',
+                                      valor:
+                                          _bombaLigada ? 'Ligada' : 'Desligada',
+                                      icone: Icons.water_drop,
+                                      cor: Colors.blue.shade400,
+                                      onTap:
+                                          () => _confirmarAcaoRele(
+                                            titulo: 'Bomba',
+                                          ),
+                                    ),
+                                    _buildFeatureCard(
+                                      titulo: 'Modo automático',
+                                      subtitulo:
+                                          _modoAutomatico ? 'Ativo' : 'Manual',
+                                      valor:
+                                          _modoAutomatico
+                                              ? 'Ativo'
+                                              : 'Desligado',
+                                      icone: Icons.auto_mode,
+                                      cor: Colors.green.shade600,
+                                      onTap:
+                                          () => _alterarModoAutomatico(
+                                            !_modoAutomatico,
+                                          ),
+                                    ),
                                   ],
+                                ),
+                                // Últimas leituras
+                                if (_dados.length > 1) ...[
+                                  const SizedBox(height: 14),
+                                  _buildUltimasLeituras(),
                                 ],
-                              ),
+                              ],
                             ),
+                          ),
                 ),
               ],
             ),
             // ── ABA 2: ALERTAS ───────────────────────────────────────────
             ipAtual.isNotEmpty
                 ? TelaAlertas(ipAtual: ipAtual)
-                : const Center(
-                    child: Text('Configure o IP da API primeiro'),
-                  ),
+                : const Center(child: Text('Configure o IP da API primeiro')),
             // ── ABA 3: HISTÓRICO ─────────────────────────────────────────
             ipAtual.isNotEmpty
                 ? TelaHistorico(ipAtual: ipAtual)
-                : const Center(
-                    child: Text('Configure o IP da API primeiro'),
-                  ),
+                : const Center(child: Text('Configure o IP da API primeiro')),
           ],
         ),
       ),
@@ -1072,16 +1199,20 @@ class _TelaDadosState extends State<TelaDados> {
   /// Calcula % de leituras recentes dentro da faixa ideal do cultivo
   double _calcularSaude(List<SensorData> dados, Cultivo? cultivo) {
     if (cultivo == null || dados.isEmpty) return 0.0;
-    final ultimas = dados.length > 50 ? dados.sublist(dados.length - 50) : dados;
+    final ultimas =
+        dados.length > 50 ? dados.sublist(dados.length - 50) : dados;
     int ok = 0;
     for (final d in ultimas) {
-      final tempOk = d.temperatura != null &&
+      final tempOk =
+          d.temperatura != null &&
           d.temperatura! >= cultivo.temperaturaMinima &&
           d.temperatura! <= cultivo.temperaturaMaxima;
-      final umidOk = d.umidade != null &&
+      final umidOk =
+          d.umidade != null &&
           d.umidade! >= cultivo.umidadeMinima &&
           d.umidade! <= cultivo.umidadeMaxima;
-      final soloOk = d.umidadeSolo != null &&
+      final soloOk =
+          d.umidadeSolo != null &&
           d.umidadeSolo! >= cultivo.umidadeSoloMinima &&
           d.umidadeSolo! <= cultivo.umidadeSoloMaxima;
       if (tempOk && umidOk && soloOk) ok++;
@@ -1090,14 +1221,16 @@ class _TelaDadosState extends State<TelaDados> {
   }
 
   Widget _buildScoreSaude(double saude) {
-    final Color cor = saude >= 80
-        ? const Color(0xFF0E7D63)
-        : saude >= 50
+    final Color cor =
+        saude >= 80
+            ? const Color(0xFF0E7D63)
+            : saude >= 50
             ? const Color(0xFFB54708)
             : const Color(0xFFB42318);
-    final String texto = saude >= 80
-        ? 'Ótimo'
-        : saude >= 50
+    final String texto =
+        saude >= 80
+            ? 'Ótimo'
+            : saude >= 50
             ? 'Atenção'
             : 'Crítico';
 
@@ -1146,10 +1279,7 @@ class _TelaDadosState extends State<TelaDados> {
               children: [
                 Text(
                   'Score de Saúde',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1180,12 +1310,14 @@ class _TelaDadosState extends State<TelaDados> {
     String unidade,
     Color cor,
   ) {
-    final dentroFaixa = valor != null && min != null && max != null
-        ? valor >= min && valor <= max
-        : null;
-    final statusCor = dentroFaixa == null
-        ? Colors.grey
-        : dentroFaixa
+    final dentroFaixa =
+        valor != null && min != null && max != null
+            ? valor >= min && valor <= max
+            : null;
+    final statusCor =
+        dentroFaixa == null
+            ? Colors.grey
+            : dentroFaixa
             ? const Color(0xFF0E7D63)
             : const Color(0xFFB42318);
 
@@ -1279,11 +1411,12 @@ class _TelaDadosState extends State<TelaDados> {
               Text(
                 titulo,
                 style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: cor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
@@ -1328,7 +1461,7 @@ class _TelaDadosState extends State<TelaDados> {
               ),
             ),
           Text(
-            onTap != null ? 'Toque para ativar' : 'Visual apenas',
+            onTap != null ? 'Toque para controlar' : 'Visual apenas',
             style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
           ),
         ],
@@ -1349,36 +1482,40 @@ class _TelaDadosState extends State<TelaDados> {
     );
   }
 
-  Future<void> _confirmarAcaoRele({
-    required String titulo,
-  }) async {
+  Future<void> _confirmarAcaoRele({required String titulo}) async {
     final ativar = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Ativar $titulo?'),
-        content: Text(
-          'Você gostaria de ativar o funcionamento do relé "$titulo"?\n\n'
-          'Por enquanto esta ação é apenas visual no mobile.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text('Ativar $titulo?'),
+            content: Text('O relé será ativado por no máximo 55 segundos.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Ativar'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Ativar'),
-          ),
-        ],
-      ),
     );
 
-    if (ativar == true && mounted) {
+    if (ativar != true || !mounted) return;
+
+    try {
+      final estado = await acionarAtuadorManual(ipAtual, titulo.toLowerCase());
+      _atualizarEstadoAtuadores(estado);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ativação do relé "$titulo" solicitada.'),
-        ),
+        SnackBar(content: Text('$titulo ativado por até 55 segundos.')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao ativar $titulo: $e')));
     }
   }
 
@@ -1409,22 +1546,28 @@ class _TelaDadosState extends State<TelaDados> {
           ...ultimas.map(
             (d) => ListTile(
               dense: true,
-              leading: const Icon(Icons.sensors, size: 18,
-                  color: Color(0xFF0E7D63)),
+              leading: const Icon(
+                Icons.sensors,
+                size: 18,
+                color: Color(0xFF0E7D63),
+              ),
               title: Text(
                 '${d.temperatura?.toStringAsFixed(1) ?? '--'}°C  •  '
                 '${d.umidade?.toStringAsFixed(1) ?? '--'}%  •  '
                 'solo ${d.umidadeSolo?.toStringAsFixed(1) ?? '--'}%',
                 style: const TextStyle(fontSize: 12),
               ),
-              subtitle: d.significado != null
-                  ? Text(d.significado!, style: const TextStyle(fontSize: 11))
-                  : null,
+              subtitle:
+                  d.significado != null
+                      ? Text(
+                        d.significado!,
+                        style: const TextStyle(fontSize: 11),
+                      )
+                      : null,
             ),
           ),
         ],
       ),
     );
   }
-
 }

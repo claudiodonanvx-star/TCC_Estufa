@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/Perfil/perfil_page.dart';
 import 'package:flutter_application_1/iot/TelaDados.dart';
-import 'package:flutter_application_1/cadastro/mainCadastro.dart';
+import 'package:flutter_application_1/cadastro/telaInicial.dart';
 
 void main() {
   runApp(
-    const MaterialApp(debugShowCheckedModeBanner: false, home: MainCadastro()),
+    MaterialApp(debugShowCheckedModeBanner: false, home: Telainicial()),
   );
 }
 
@@ -118,7 +118,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainCadastro()),
+      MaterialPageRoute(builder: (_) => Telainicial()),
       (_) => false,
     );
   }

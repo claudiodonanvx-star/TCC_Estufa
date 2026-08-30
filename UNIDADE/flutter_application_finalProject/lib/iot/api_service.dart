@@ -93,7 +93,10 @@ Future<void> removerCultivo(String ipAtual, int id) async {
   }
 }
 
-Future<Cultivo> criarCultivo(String ipAtual, Map<String, dynamic> cultivoDados) async {
+Future<Cultivo> criarCultivo(
+  String ipAtual,
+  Map<String, dynamic> cultivoDados,
+) async {
   if (ipAtual.isEmpty || !ipAtual.startsWith('http')) {
     throw Exception('IP inválido para criar cultivo');
   }
@@ -154,7 +157,9 @@ Future<List<Alerta>> fetchAlertas(String ipAtual) async {
 
 /// periodo: 'semanal', 'mensal' ou 'anual'
 Future<List<RelatorioDiario>> fetchRelatorios(
-    String ipAtual, String periodo) async {
+  String ipAtual,
+  String periodo,
+) async {
   if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return [];
 
   final response = await http.get(
@@ -213,4 +218,48 @@ Future<void> pingApiKeepAlive(String ipAtual) async {
   } catch (_) {
     // Silencio falhas — esta é uma chamada de manutenção
   }
+}
+
+Future<Map<String, dynamic>> fetchEstadoAtuadores(String ipAtual) async {
+  final response = await http.get(
+    Uri.parse('$ipAtual/api/atuadores'),
+    headers: {'Accept': 'application/json'},
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception('Erro ao buscar estado dos atuadores');
+  }
+  return json.decode(response.body) as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> definirModoAutomatico(
+  String ipAtual,
+  bool ativo,
+) async {
+  final response = await http.put(
+    Uri.parse('$ipAtual/api/atuadores/modo'),
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({'modoAutomatico': ativo}),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception('Erro ao alterar modo de operacao');
+  }
+  return json.decode(response.body) as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> acionarAtuadorManual(
+  String ipAtual,
+  String atuador,
+) async {
+  final response = await http.post(
+    Uri.parse('$ipAtual/api/atuadores/$atuador/acionar'),
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({'duracaoSegundos': 55}),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception('Erro ao acionar $atuador');
+  }
+  return json.decode(response.body) as Map<String, dynamic>;
 }
