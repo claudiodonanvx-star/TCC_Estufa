@@ -27,23 +27,11 @@ const connectionDot =
 const connectionText =
     document.getElementById("connectionText");
 
-const statusCircle =
-    document.getElementById("statusCircle");
-
-const statusText =
-    document.getElementById("statusText");
-
 const serialMonitor =
     document.getElementById("serialMonitor");
 
 const warning =
     document.getElementById("warning");
-
-const onButton =
-    document.getElementById("onButton");
-
-const offButton =
-    document.getElementById("offButton");
 
 const clearButton =
     document.getElementById("clearButton");
@@ -103,26 +91,6 @@ apiBaseInput.value =
 connectButton.addEventListener(
     "click",
     alternarConexao
-);
-
-
-// =========================================================
-// BOTÃO LIGAR
-// =========================================================
-
-onButton.addEventListener(
-    "click",
-    ligarBomba
-);
-
-
-// =========================================================
-// BOTÃO DESLIGAR
-// =========================================================
-
-offButton.addEventListener(
-    "click",
-    desligarBomba
 );
 
 
@@ -370,8 +338,6 @@ async function verificarAtuadores() {
         const estado =
             await resposta.json();
 
-        atualizarStatus(estado.bombaLigada);
-
         cadastroModo.textContent =
             estado.modoAutomatico ? "Automático" : "Manual";
 
@@ -521,115 +487,6 @@ function registrarFalha(mensagem) {
 
     falhasLog.appendChild(item);
     falhasLog.scrollTop = falhasLog.scrollHeight;
-}
-
-
-// =========================================================
-// ATUALIZAR STATUS
-// =========================================================
-
-function atualizarStatus(ligada) {
-
-    if (ligada) {
-
-        statusCircle
-            .classList
-            .add("ligada");
-
-        statusText.textContent =
-            "BOMBA LIGADA";
-
-    }
-
-    else {
-
-        statusCircle
-            .classList
-            .remove("ligada");
-
-        statusText.textContent =
-            "BOMBA DESLIGADA";
-
-    }
-}
-
-
-// =========================================================
-// ENVIAR COMANDO PARA O ATUADOR (VIA API)
-// =========================================================
-
-async function enviarComandoAtuador(atuador, duracaoSegundos) {
-
-    if (!conectado) {
-
-        adicionarLog(
-            "ERRO: conecte-se à API antes de enviar comandos."
-        );
-
-        return;
-    }
-
-
-    try {
-
-        const resposta =
-            await fetch(`${apiBase}/api/atuadores/${atuador}/acionar`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    duracaoSegundos: duracaoSegundos
-                })
-            });
-
-
-        if (!resposta.ok) {
-            throw new Error("comando recusado pela API");
-        }
-
-
-        adicionarLog(
-            `>> Comando enviado: ${atuador} por ${duracaoSegundos}s`
-        );
-
-        verificarAtuadores();
-
-    }
-
-    catch (error) {
-
-        console.error(error);
-
-        adicionarLog(
-            "ERRO ao enviar comando para a API."
-        );
-
-    }
-}
-
-
-// =========================================================
-// LIGAR BOMBA
-// =========================================================
-
-async function ligarBomba() {
-
-    await enviarComandoAtuador("bomba", 55);
-
-}
-
-
-// =========================================================
-// DESLIGAR BOMBA
-// =========================================================
-
-// A API só expõe "ligar por X segundos", então desligar antecipa o fim do acionamento manual.
-
-async function desligarBomba() {
-
-    await enviarComandoAtuador("bomba", 1);
-
 }
 
 
