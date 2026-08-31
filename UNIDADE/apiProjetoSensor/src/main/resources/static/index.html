@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Monitor Arduino - Bomba</title>
+    <title>Monitor Serial</title>
 
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -15,10 +15,10 @@
     <main class="container">
 
         <header class="header">
-            <h1>💧 Monitor da Bomba</h1>
+            <h1>📡 Monitor Serial</h1>
 
             <p>
-                Controle e acompanhamento do protótipo Arduino
+                Acompanhamento em tempo real via API (a unidade fica ligada na tomada, sem cabo serial)
             </p>
         </header>
 
@@ -33,23 +33,32 @@
 
                 <div>
                     <strong id="connectionText">
-                        Arduino desconectado
+                        Desconectado da API
                     </strong>
 
                     <small>
-                        Porta serial
+                        Endereço da API
                     </small>
                 </div>
 
             </div>
 
-            <button
-                id="connectButton"
-                class="button button-connect">
+            <div class="api-config">
 
-                🔌 Conectar Arduino
+                <input
+                    id="apiBaseInput"
+                    type="text"
+                    placeholder="https://api-estufa.onrender.com">
 
-            </button>
+                <button
+                    id="connectButton"
+                    class="button button-connect">
+
+                    🔌 Conectar
+
+                </button>
+
+            </div>
 
         </section>
 
@@ -58,8 +67,7 @@
 
         <div id="warning" class="warning">
 
-            ⚠️ Seu navegador não suporta Web Serial.
-            Use uma versão recente do Google Chrome ou Microsoft Edge.
+            ⚠️ Não foi possível falar com a API. Verifique o endereço e a conexão com a internet.
 
         </div>
 
@@ -110,7 +118,7 @@
                         id="onButton"
                         class="button button-on">
 
-                        ▶ LIGAR
+                        ▶ LIGAR (55s)
 
                     </button>
 
@@ -128,13 +136,13 @@
             </section>
 
 
-            <!-- MONITOR SERIAL -->
+            <!-- MONITOR VIA API -->
 
             <section class="card">
 
                 <div class="card-header">
 
-                    <h2>📟 Monitor Serial</h2>
+                    <h2>📡 Monitor (via API)</h2>
 
                     <button
                         id="clearButton"
@@ -246,15 +254,16 @@
                 <h2>🗂️ Cadastro do dispositivo</h2>
 
                 <p class="hint">
-                    Informações somente leitura, extraídas das mensagens da porta serial.
+                    Informações somente leitura, obtidas da API da unidade.
                     Nenhum cadastro existente do sistema é alterado por esta tela.
                 </p>
 
                 <ul class="info-list">
 
-                    <li><strong>Status Arduino:</strong> <span id="cadastroConexao">Desconectado</span></li>
-                    <li><strong>Rede Wi-Fi:</strong> <span id="cadastroWifi">--</span></li>
-                    <li><strong>IP do ESP32:</strong> <span id="cadastroIp">--</span></li>
+                    <li><strong>Endereço da API:</strong> <span id="cadastroApi">--</span></li>
+                    <li><strong>Modo dos atuadores:</strong> <span id="cadastroModo">--</span></li>
+                    <li><strong>Total de leituras:</strong> <span id="cadastroLeituras">--</span></li>
+                    <li><strong>Alertas (24h):</strong> <span id="cadastroAlertas24h">--</span></li>
 
                 </ul>
 
@@ -267,7 +276,7 @@
 
         <footer>
 
-            Arduino Pump Monitor
+            Monitor Serial - Estufa Smart
 
         </footer>
 

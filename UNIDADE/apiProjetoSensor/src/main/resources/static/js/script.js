@@ -2,11 +2,13 @@
 // VARIÁVEIS
 // =========================================================
 
-let port = null;
-let reader = null;
-let writer = null;
+let apiBase = "";
+let pollTimer = null;
+let conectado = false;
 
-let buffer = "";
+let ultimoDadoId = null;
+let ultimoAlertaId = null;
+let ultimoEstadoAtuadores = null;
 
 
 // =========================================================
@@ -15,6 +17,9 @@ let buffer = "";
 
 const connectButton =
     document.getElementById("connectButton");
+
+const apiBaseInput =
+    document.getElementById("apiBaseInput");
 
 const connectionDot =
     document.getElementById("connectionDot");
@@ -74,32 +79,30 @@ const clearFalhasButton = document.getElementById("clearFalhasButton");
 
 // Cadastro (somente leitura, não altera cadastros do sistema)
 
-const cadastroConexao = document.getElementById("cadastroConexao");
-const cadastroWifi = document.getElementById("cadastroWifi");
-const cadastroIp = document.getElementById("cadastroIp");
+const cadastroApi = document.getElementById("cadastroApi");
+const cadastroModo = document.getElementById("cadastroModo");
+const cadastroLeituras = document.getElementById("cadastroLeituras");
+const cadastroAlertas24h = document.getElementById("cadastroAlertas24h");
 
 
 // =========================================================
-// VERIFICAR SUPORTE AO WEB SERIAL
+// CARREGAR ENDEREÇO DA API SALVO
 // =========================================================
 
-if (!("serial" in navigator)) {
-
-    warning.style.display = "block";
-
-    adicionarSerial(
-        "ERRO: Web Serial não é suportado neste navegador."
-    );
-}
+apiBaseInput.value =
+    localStorage.getItem("estufaApiBase") ||
+    (location.protocol.startsWith("http")
+        ? location.origin
+        : "https://api-estufa.onrender.com");
 
 
 // =========================================================
-// BOTÃO CONECTAR
+// BOTÃO CONECTAR / DESCONECTAR
 // =========================================================
 
 connectButton.addEventListener(
     "click",
-    connectSerial
+    alternarConexao
 );
 
 
@@ -172,61 +175,180 @@ clearFalhasButton.addEventListener("click", function () {
 
 
 // =========================================================
-// CONECTAR AO ARDUINO
+// CONECTAR / DESCONECTAR DA API
 // =========================================================
 
-async function connectSerial() {
+function alternarConexao() {
+
+    if (conectado) {
+        desconectar();
+    } else {
+        conectar();
+    }
+}
+
+
+function normalizarApiBase(valor) {
+
+    let base = valor.trim().replace(/\/+$/, "");
+
+    if (base.length === 0) {
+        return "";
+    }
+
+    if (!/^https?:\/\//i.test(base)) {
+        base = "https://" + base;
+    }
+
+    return base;
+}
+
+
+function conectar() {
+
+    apiBase = normalizarApiBase(apiBaseInput.value);
+
+    localStorage.setItem("estufaApiBase", apiBase);
+
+    ultimoDadoId = null;
+    ultimoAlertaId = null;
+    ultimoEstadoAtuadores = null;
+
+    conectado = true;
+
+    connectButton.textContent =
+        "🔌 Desconectar";
+
+    adicionarLog(
+        "Conectando à API: " + (apiBase || location.origin)
+    );
+
+    atualizarTudo();
+
+    pollTimer = setInterval(atualizarTudo, 5000);
+}
+
+
+function desconectar() {
+
+    clearInterval(pollTimer);
+
+    conectado = false;
+
+    connectButton.textContent =
+        "🔌 Conectar";
+
+    connectionDot.classList.remove("connected");
+
+    connectionText.textContent =
+        "Desconectado da API";
+
+    adicionarLog(
+        "Monitoramento pausado."
+    );
+}
+
+
+// =========================================================
+// BUSCAR DADOS DA API (SUBSTITUI A LEITURA SERIAL)
+// =========================================================
+
+async function atualizarTudo() {
+
+    await Promise.all([
+        verificarPing(),
+        verificarDados(),
+        verificarAtuadores(),
+        verificarAlertas()
+    ]);
+}
+
+
+async function verificarPing() {
 
     try {
 
-        adicionarSerial(
-            "Solicitando conexão com o Arduino..."
-        );
+        const resposta =
+            await fetch(apiBase + "/api/ping");
 
+        if (!resposta.ok) {
+            throw new Error("ping falhou");
+        }
 
-        // Abre janela para selecionar a porta
+        const dados =
+            await resposta.json();
 
-        port =
-            await navigator.serial.requestPort();
-
-
-        // Abre a porta em 9600 baud
-
-        await port.open({
-            baudRate: 9600
-        });
-
-
-        // Atualiza interface
-
-        connectionDot
-            .classList
-            .add("connected");
+        connectionDot.classList.add("connected");
 
         connectionText.textContent =
-            "Arduino conectado";
+            "API conectada";
 
-        connectButton.textContent =
-            "✅ Arduino conectado";
+        warning.style.display = "none";
 
-        cadastroConexao.textContent =
-            "Arduino conectado (aguardando dados)";
+        cadastroApi.textContent =
+            apiBase || location.origin;
+
+        cadastroLeituras.textContent =
+            dados.totalLeituras ?? "--";
+
+        cadastroAlertas24h.textContent =
+            dados.alertas24h ?? "--";
+
+    }
+
+    catch (error) {
+
+        connectionDot.classList.remove("connected");
+
+        connectionText.textContent =
+            "Falha ao conectar à API";
+
+        warning.style.display = "block";
+
+    }
+}
 
 
-        adicionarSerial(
-            "Arduino conectado com sucesso."
+async function verificarDados() {
+
+    try {
+
+        const resposta =
+            await fetch(apiBase + "/api/dados?page=0&size=1&ordem=desc");
+
+        const lista =
+            await resposta.json();
+
+        if (!Array.isArray(lista) || lista.length === 0) {
+            return;
+        }
+
+        const ultimo = lista[0];
+
+        if (ultimo.id === ultimoDadoId) {
+            return;
+        }
+
+        ultimoDadoId = ultimo.id;
+
+        atualizarSensor(tempValue, tempStatus, ultimo.temperatura, "°C");
+        atualizarSensor(umidadeValue, umidadeStatus, ultimo.umidade, "%");
+
+        if (ultimo.umidadeSolo != null) {
+            atualizarSensor(soloValue, soloStatus, ultimo.umidadeSolo, "%");
+        } else {
+            marcarSensorComoFalha(soloStatus);
+            registrarFalha("Sensor de solo sem leitura recente");
+        }
+
+        const solo =
+            ultimo.umidadeSolo != null
+                ? ultimo.umidadeSolo.toFixed(1) + "%"
+                : "--";
+
+        adicionarLog(
+            `🌡️ ${ultimo.temperatura.toFixed(1)}°C · 💧 ${ultimo.umidade.toFixed(1)}% · 🌱 ${solo} — ${ultimo.significado ?? ""}`
         );
-
-
-        // Cria escritor da porta
-
-        writer =
-            port.writable.getWriter();
-
-
-        // Começa a leitura
-
-        readSerial();
 
     }
 
@@ -234,89 +356,91 @@ async function connectSerial() {
 
         console.error(error);
 
-        adicionarSerial(
-            "ERRO: Não foi possível conectar ao Arduino."
-        );
+    }
+}
+
+
+async function verificarAtuadores() {
+
+    try {
+
+        const resposta =
+            await fetch(apiBase + "/api/atuadores");
+
+        const estado =
+            await resposta.json();
+
+        atualizarStatus(estado.bombaLigada);
+
+        cadastroModo.textContent =
+            estado.modoAutomatico ? "Automático" : "Manual";
+
+        if (ultimoEstadoAtuadores) {
+
+            if (estado.bombaLigada !== ultimoEstadoAtuadores.bombaLigada) {
+                registrarRele(estado.bombaLigada ? "Bomba ligada" : "Bomba desligada");
+            }
+
+            if (estado.coolerLigado !== ultimoEstadoAtuadores.coolerLigado) {
+                registrarRele(estado.coolerLigado ? "Cooler ligado" : "Cooler desligado");
+            }
+        }
+
+        ultimoEstadoAtuadores = estado;
+
+    }
+
+    catch (error) {
+
+        console.error(error);
 
     }
 }
 
 
-// =========================================================
-// LER PORTA SERIAL
-// =========================================================
-
-async function readSerial() {
-
-    reader =
-        port.readable.getReader();
-
-
-    const decoder =
-        new TextDecoder();
-
+async function verificarAlertas() {
 
     try {
 
-        while (true) {
+        const resposta =
+            await fetch(apiBase + "/api/alertas");
 
-            const {
-                value,
-                done
-            } = await reader.read();
+        const lista =
+            await resposta.json();
 
+        if (!Array.isArray(lista) || lista.length === 0) {
+            return;
+        }
 
-            if (done) {
-                break;
-            }
+        // Primeira consulta: só define o marco, sem repetir todo o histórico
 
+        if (ultimoAlertaId === null) {
 
-            if (!value) {
-                continue;
-            }
+            lista
+                .slice(0, 10)
+                .slice()
+                .reverse()
+                .forEach(function (alerta) {
+                    registrarFalha(`[${alerta.severidade}] ${alerta.mensagem}`);
+                });
 
+            ultimoAlertaId = Math.max(...lista.map((a) => a.id));
 
-            // Converte os bytes recebidos para texto
+            return;
+        }
 
-            buffer +=
-                decoder.decode(value);
+        const novos =
+            lista.filter((a) => a.id > ultimoAlertaId);
 
+        novos
+            .slice()
+            .reverse()
+            .forEach(function (alerta) {
+                registrarFalha(`[${alerta.severidade}] ${alerta.mensagem}`);
+            });
 
-            // Divide por linhas
-
-            const linhas =
-                buffer.split("\n");
-
-
-            // Guarda a última linha incompleta
-
-            buffer =
-                linhas.pop();
-
-
-            // Processa as linhas completas
-
-            for (let linha of linhas) {
-
-                linha =
-                    linha.trim();
-
-
-                if (linha.length === 0) {
-                    continue;
-                }
-
-
-                // Mostra no monitor
-
-                adicionarSerial(linha);
-
-
-                // Analisa a mensagem
-
-                interpretarMensagem(linha);
-            }
-
+        if (novos.length > 0) {
+            ultimoAlertaId = Math.max(...lista.map((a) => a.id));
         }
 
     }
@@ -325,124 +449,7 @@ async function readSerial() {
 
         console.error(error);
 
-        adicionarSerial(
-            "ERRO: conexão serial encerrada."
-        );
-
     }
-
-    finally {
-
-        reader.releaseLock();
-
-    }
-}
-
-
-// =========================================================
-// INTERPRETAR MENSAGEM DO ARDUINO
-// =========================================================
-
-function interpretarMensagem(mensagem) {
-
-    const msgLower = mensagem.toLowerCase();
-
-
-    // Bomba
-
-    if (msgLower.includes("bomba:") && msgLower.includes("ligada")) {
-        atualizarStatus(true);
-        registrarRele("Bomba ligada");
-    }
-
-    if (msgLower.includes("bomba:") && msgLower.includes("desligada")) {
-        atualizarStatus(false);
-        registrarRele("Bomba desligada");
-    }
-
-
-    // Cooler
-
-    if (msgLower.includes("cooler:") && msgLower.includes("ligado")) {
-        registrarRele("Cooler ligado");
-    }
-
-    if (msgLower.includes("cooler:") && msgLower.includes("desligado")) {
-        registrarRele("Cooler desligado");
-    }
-
-
-    // Sensores (temperatura, umidade do ar, umidade do solo)
-
-    if (mensagem.includes("Temperatura:")) {
-        atualizarSensor(tempValue, tempStatus, extrairNumero(mensagem), "°C");
-    }
-
-    if (mensagem.includes("Umidade:")) {
-        atualizarSensor(umidadeValue, umidadeStatus, extrairNumero(mensagem), "%");
-    }
-
-    if (mensagem.includes("Umidade do solo:")) {
-        atualizarSensor(soloValue, soloStatus, extrairNumero(mensagem), "%");
-    }
-
-
-    // Falhas de sensores e comunicação
-
-    if (msgLower.includes("erro na leitura do dht11")) {
-        marcarSensorComoFalha(tempStatus);
-        marcarSensorComoFalha(umidadeStatus);
-        registrarFalha("Falha no sensor DHT11 (temperatura/umidade)");
-    }
-
-    if (msgLower.includes("sensor de solo desconectado")) {
-        marcarSensorComoFalha(soloStatus);
-        registrarFalha("Falha no sensor de umidade do solo");
-    }
-
-    if (msgLower.includes("erro http")) {
-        registrarFalha("Falha ao enviar dados para a API (erro HTTP)");
-    }
-
-    if (msgLower.includes("erro ao interpretar json")) {
-        registrarFalha("Falha ao interpretar resposta da API (JSON inválido)");
-    }
-
-    if (msgLower.includes("wi-fi desconectado")) {
-        registrarFalha("Falha de conexão Wi-Fi");
-        cadastroConexao.textContent = "Desconectado";
-    }
-
-    if (msgLower.includes("nenhuma rede conhecida")) {
-        registrarFalha("Nenhuma rede Wi-Fi conhecida encontrada");
-    }
-
-
-    // Cadastro (leitura das informações de rede, sem alterar nada)
-
-    if (mensagem.includes("Tentando SSID:")) {
-        cadastroWifi.textContent = mensagem.split("Tentando SSID:")[1].trim();
-    }
-
-    if (msgLower.includes("conectado ao wi-fi")) {
-        cadastroConexao.textContent = "Wi-Fi conectado";
-    }
-
-    if (mensagem.includes("IP do ESP32:")) {
-        cadastroIp.textContent = mensagem.split("IP do ESP32:")[1].trim();
-    }
-}
-
-
-// =========================================================
-// EXTRAIR NÚMERO DE UMA MENSAGEM (ex: "Temperatura: 25.30 °C")
-// =========================================================
-
-function extrairNumero(mensagem) {
-
-    const match = mensagem.match(/-?\d+(\.\d+)?/);
-
-    return match ? parseFloat(match[0]) : NaN;
 }
 
 
@@ -452,11 +459,11 @@ function extrairNumero(mensagem) {
 
 function atualizarSensor(valorEl, statusEl, valor, unidade) {
 
-    if (isNaN(valor)) {
+    if (valor == null || isNaN(valor)) {
         return;
     }
 
-    valorEl.textContent = valor.toFixed(1) + " " + unidade;
+    valorEl.textContent = Number(valor).toFixed(1) + " " + unidade;
 
     statusEl.textContent = "OK";
     statusEl.classList.remove("erro");
@@ -548,15 +555,15 @@ function atualizarStatus(ligada) {
 
 
 // =========================================================
-// ENVIAR COMANDO PARA O ARDUINO
+// ENVIAR COMANDO PARA O ATUADOR (VIA API)
 // =========================================================
 
-async function enviarComando(comando) {
+async function enviarComandoAtuador(atuador, duracaoSegundos) {
 
-    if (!port || !writer) {
+    if (!conectado) {
 
-        adicionarSerial(
-            "ERRO: Arduino não está conectado."
+        adicionarLog(
+            "ERRO: conecte-se à API antes de enviar comandos."
         );
 
         return;
@@ -565,18 +572,28 @@ async function enviarComando(comando) {
 
     try {
 
-        const encoder =
-            new TextEncoder();
+        const resposta =
+            await fetch(`${apiBase}/api/atuadores/${atuador}/acionar`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    duracaoSegundos: duracaoSegundos
+                })
+            });
 
 
-        await writer.write(
-            encoder.encode(comando)
+        if (!resposta.ok) {
+            throw new Error("comando recusado pela API");
+        }
+
+
+        adicionarLog(
+            `>> Comando enviado: ${atuador} por ${duracaoSegundos}s`
         );
 
-
-        adicionarSerial(
-            ">> Enviado: " + comando
-        );
+        verificarAtuadores();
 
     }
 
@@ -584,8 +601,8 @@ async function enviarComando(comando) {
 
         console.error(error);
 
-        adicionarSerial(
-            "ERRO ao enviar comando."
+        adicionarLog(
+            "ERRO ao enviar comando para a API."
         );
 
     }
@@ -598,7 +615,7 @@ async function enviarComando(comando) {
 
 async function ligarBomba() {
 
-    await enviarComando("1");
+    await enviarComandoAtuador("bomba", 55);
 
 }
 
@@ -607,18 +624,20 @@ async function ligarBomba() {
 // DESLIGAR BOMBA
 // =========================================================
 
+// A API só expõe "ligar por X segundos", então desligar antecipa o fim do acionamento manual.
+
 async function desligarBomba() {
 
-    await enviarComando("0");
+    await enviarComandoAtuador("bomba", 1);
 
 }
 
 
 // =========================================================
-// MONITOR SERIAL
+// MONITOR (LOG DE EVENTOS VINDOS DA API)
 // =========================================================
 
-function adicionarSerial(mensagem) {
+function adicionarLog(mensagem) {
 
     const hora =
         new Date().toLocaleTimeString();

@@ -189,6 +189,41 @@ body {
 
 
 /* =========================================================
+   CONFIGURAÇÃO DA API
+========================================================= */
+
+.api-config {
+    display: flex;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+}
+
+.api-config input {
+    background: #0f172a;
+
+    border: 1px solid #334155;
+
+    color: #e2e8f0;
+
+    border-radius: 10px;
+
+    padding: 12px 14px;
+
+    font-size: 14px;
+
+    min-width: 220px;
+}
+
+.api-config input:focus {
+    outline: none;
+
+    border-color: #2563eb;
+}
+
+
+/* =========================================================
    STATUS DA BOMBA
 ========================================================= */
 
