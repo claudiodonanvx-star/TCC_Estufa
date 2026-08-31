@@ -1,0 +1,633 @@
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* =========================================================
+   BODY
+========================================================= */
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+
+    background:
+        linear-gradient(
+            135deg,
+            #0f172a,
+            #1e293b
+        );
+
+    color: #e2e8f0;
+
+    min-height: 100vh;
+
+    padding: 30px;
+}
+
+
+/* =========================================================
+   CONTAINER
+========================================================= */
+
+.container {
+    width: 100%;
+    max-width: 900px;
+
+    margin: 0 auto;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.header {
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.header p {
+    color: #94a3b8;
+    font-size: 16px;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.card {
+    background: #1e293b;
+
+    border: 1px solid #334155;
+
+    border-radius: 16px;
+
+    padding: 25px;
+
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+
+/* =========================================================
+   CONEXÃO
+========================================================= */
+
+.connection-card {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    flex-wrap: wrap;
+}
+
+.connection-info {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+.connection-info strong {
+    display: block;
+
+    font-size: 17px;
+}
+
+.connection-info small {
+    display: block;
+
+    color: #94a3b8;
+
+    margin-top: 4px;
+}
+
+
+/* Bolinha de conexão */
+
+.connection-dot {
+    width: 15px;
+    height: 15px;
+
+    border-radius: 50%;
+
+    background: #ef4444;
+}
+
+.connection-dot.connected {
+    background: #22c55e;
+
+    box-shadow:
+        0 0 12px #22c55e;
+}
+
+
+/* =========================================================
+   BOTÕES
+========================================================= */
+
+.button {
+    border: none;
+
+    border-radius: 10px;
+
+    padding: 13px 22px;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.2s,
+        opacity 0.2s,
+        box-shadow 0.2s;
+}
+
+.button:hover {
+    transform: translateY(-2px);
+
+    opacity: 0.9;
+}
+
+.button:active {
+    transform: translateY(0);
+}
+
+
+/* Botão conectar */
+
+.button-connect {
+    background: #2563eb;
+
+    color: white;
+}
+
+.button-connect:hover {
+    box-shadow:
+        0 5px 20px rgba(37, 99, 235, 0.4);
+}
+
+
+/* =========================================================
+   STATUS DA BOMBA
+========================================================= */
+
+.pump-card {
+    text-align: center;
+}
+
+.pump-card h2 {
+    margin-bottom: 30px;
+}
+
+
+/* Círculo */
+
+.status-circle {
+    width: 120px;
+    height: 120px;
+
+    border-radius: 50%;
+
+    margin: 0 auto 20px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    font-size: 48px;
+
+    background: #475569;
+
+    transition:
+        background 0.3s,
+        box-shadow 0.3s;
+}
+
+
+/* Bomba ligada */
+
+.status-circle.ligada {
+    background: #16a34a;
+
+    box-shadow:
+        0 0 20px rgba(22, 163, 74, 0.5),
+        0 0 50px rgba(22, 163, 74, 0.2);
+}
+
+
+/* Texto */
+
+.status-text {
+    font-size: 28px;
+
+    font-weight: bold;
+
+    margin-bottom: 25px;
+}
+
+
+/* =========================================================
+   BOTÕES DA BOMBA
+========================================================= */
+
+.buttons {
+    display: flex;
+
+    justify-content: center;
+
+    gap: 15px;
+
+    flex-wrap: wrap;
+}
+
+.button-on {
+    background: #16a34a;
+
+    color: white;
+
+    min-width: 150px;
+}
+
+.button-off {
+    background: #dc2626;
+
+    color: white;
+
+    min-width: 150px;
+}
+
+
+/* =========================================================
+   MONITOR SERIAL
+========================================================= */
+
+.card-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 15px;
+}
+
+.card-header h2 {
+    font-size: 20px;
+}
+
+
+/* Área do monitor */
+
+.serial-monitor {
+    background: #020617;
+
+    border: 1px solid #334155;
+
+    border-radius: 10px;
+
+    height: 300px;
+
+    padding: 15px;
+
+    overflow-y: auto;
+
+    white-space: pre-wrap;
+
+    font-family:
+        "Courier New",
+        monospace;
+
+    font-size: 14px;
+
+    color: #22c55e;
+}
+
+
+/* Botão limpar */
+
+.clear-button {
+    background: transparent;
+
+    border: 1px solid #475569;
+
+    color: #94a3b8;
+
+    border-radius: 7px;
+
+    padding: 7px 12px;
+
+    cursor: pointer;
+}
+
+.clear-button:hover {
+    background: #334155;
+
+    color: white;
+}
+
+
+/* =========================================================
+   AVISO
+========================================================= */
+
+.warning {
+    display: none;
+
+    background: #422006;
+
+    color: #fbbf24;
+
+    padding: 15px;
+
+    border-radius: 10px;
+
+    margin-bottom: 20px;
+
+    border: 1px solid #92400e;
+}
+
+
+
+footer {
+    text-align: center;
+
+    color: #64748b;
+
+    font-size: 13px;
+
+    padding: 15px;
+}
+
+
+/* =========================================================
+   ABAS
+========================================================= */
+
+.tabs {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    background: #1e293b;
+
+    border: 1px solid #334155;
+
+    color: #94a3b8;
+
+    border-radius: 10px;
+
+    padding: 10px 16px;
+
+    font-size: 14px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        color 0.2s,
+        border-color 0.2s;
+}
+
+.tab-button:hover {
+    color: #e2e8f0;
+}
+
+.tab-button.active {
+    background: #2563eb;
+
+    border-color: #2563eb;
+
+    color: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+
+/* =========================================================
+   SENSORES
+========================================================= */
+
+.sensor-grid {
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+
+    gap: 15px;
+
+    margin-bottom: 15px;
+}
+
+.sensor-item {
+    background: #0f172a;
+
+    border: 1px solid #334155;
+
+    border-radius: 12px;
+
+    padding: 18px;
+
+    text-align: center;
+}
+
+.sensor-label {
+    display: block;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+
+    margin-bottom: 8px;
+}
+
+.sensor-value {
+    display: block;
+
+    font-size: 26px;
+
+    font-weight: bold;
+
+    margin-bottom: 8px;
+}
+
+.sensor-status {
+    display: inline-block;
+
+    font-size: 12px;
+
+    font-weight: bold;
+
+    padding: 3px 10px;
+
+    border-radius: 999px;
+
+    background: #334155;
+
+    color: #94a3b8;
+}
+
+.sensor-status.ok {
+    background: rgba(34, 197, 94, 0.15);
+
+    color: #22c55e;
+}
+
+.sensor-status.erro {
+    background: rgba(239, 68, 68, 0.15);
+
+    color: #ef4444;
+}
+
+
+/* =========================================================
+   LOG DE EVENTOS (RELÉ / FALHAS)
+========================================================= */
+
+.event-log {
+    background: #020617;
+
+    border: 1px solid #334155;
+
+    border-radius: 10px;
+
+    min-height: 120px;
+
+    max-height: 320px;
+
+    padding: 15px;
+
+    overflow-y: auto;
+
+    font-family: "Courier New", monospace;
+
+    font-size: 14px;
+
+    color: #94a3b8;
+
+    white-space: pre-wrap;
+}
+
+.event-log .log-item {
+    display: block;
+
+    padding: 6px 0;
+
+    border-bottom: 1px solid #1e293b;
+}
+
+.event-log .log-item:last-child {
+    border-bottom: none;
+}
+
+.event-log .log-item.falha {
+    color: #ef4444;
+}
+
+.event-log .log-item.rele {
+    color: #22c55e;
+}
+
+
+/* =========================================================
+   CADASTRO
+========================================================= */
+
+.hint {
+    display: block;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+
+    margin-bottom: 15px;
+}
+
+.info-list {
+    list-style: none;
+}
+
+.info-list li {
+    padding: 10px 0;
+
+    border-bottom: 1px solid #334155;
+
+    font-size: 14px;
+}
+
+.info-list li:last-child {
+    border-bottom: none;
+}
+
+.info-list strong {
+    color: #e2e8f0;
+}
+
+
+
+@media (max-width: 600px) {
+
+    body {
+        padding: 15px;
+    }
+
+    .header h1 {
+        font-size: 26px;
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    .connection-card {
+        align-items: stretch;
+    }
+
+    .button-connect {
+        width: 100%;
+    }
+
+    .status-text {
+        font-size: 23px;
+    }
+
+    .button-on,
+    .button-off {
+        width: 100%;
+    }
+
+}

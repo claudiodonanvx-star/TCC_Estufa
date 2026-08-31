@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Monitor Arduino - Bomba</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <main class="container">
+
+        <header class="header">
+            <h1>💧 Monitor da Bomba</h1>
+
+            <p>
+                Controle e acompanhamento do protótipo Arduino
+            </p>
+        </header>
+
+
+        <!-- CONEXÃO -->
+
+        <section class="card connection-card">
+
+            <div class="connection-info">
+
+                <div id="connectionDot" class="connection-dot"></div>
+
+                <div>
+                    <strong id="connectionText">
+                        Arduino desconectado
+                    </strong>
+
+                    <small>
+                        Porta serial
+                    </small>
+                </div>
+
+            </div>
+
+            <button
+                id="connectButton"
+                class="button button-connect">
+
+                🔌 Conectar Arduino
+
+            </button>
+
+        </section>
+
+
+        <!-- AVISO -->
+
+        <div id="warning" class="warning">
+
+            ⚠️ Seu navegador não suporta Web Serial.
+            Use uma versão recente do Google Chrome ou Microsoft Edge.
+
+        </div>
+
+
+        <!-- ABAS -->
+
+        <nav class="tabs">
+
+            <button class="tab-button active" data-tab="monitor">📟 Monitor</button>
+            <button class="tab-button" data-tab="sensores">🌡️ Sensores</button>
+            <button class="tab-button" data-tab="rele">🔌 Relé</button>
+            <button class="tab-button" data-tab="falhas">⚠️ Falhas</button>
+            <button class="tab-button" data-tab="cadastro">🗂️ Cadastro</button>
+
+        </nav>
+
+
+        <!-- ABA: MONITOR -->
+
+        <section class="tab-content active" data-tab-content="monitor">
+
+            <!-- STATUS DA BOMBA -->
+
+            <section class="card pump-card">
+
+                <h2>Status da bomba</h2>
+
+                <div
+                    id="statusCircle"
+                    class="status-circle">
+
+                    💧
+
+                </div>
+
+                <div
+                    id="statusText"
+                    class="status-text">
+
+                    BOMBA DESLIGADA
+
+                </div>
+
+
+                <div class="buttons">
+
+                    <button
+                        id="onButton"
+                        class="button button-on">
+
+                        ▶ LIGAR
+
+                    </button>
+
+
+                    <button
+                        id="offButton"
+                        class="button button-off">
+
+                        ■ DESLIGAR
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- MONITOR SERIAL -->
+
+            <section class="card">
+
+                <div class="card-header">
+
+                    <h2>📟 Monitor Serial</h2>
+
+                    <button
+                        id="clearButton"
+                        class="clear-button">
+
+                        Limpar
+
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="serialMonitor"
+                    class="serial-monitor">
+
+                </div>
+
+            </section>
+
+        </section>
+
+
+        <!-- ABA: SENSORES -->
+
+        <section class="tab-content" data-tab-content="sensores">
+
+            <section class="card">
+
+                <h2>🌡️ Sensores</h2>
+
+                <div class="sensor-grid">
+
+                    <div class="sensor-item">
+                        <span class="sensor-label">Temperatura</span>
+                        <span id="tempValue" class="sensor-value">--</span>
+                        <span id="tempStatus" class="sensor-status">Aguardando</span>
+                    </div>
+
+                    <div class="sensor-item">
+                        <span class="sensor-label">Umidade do ar</span>
+                        <span id="umidadeValue" class="sensor-value">--</span>
+                        <span id="umidadeStatus" class="sensor-status">Aguardando</span>
+                    </div>
+
+                    <div class="sensor-item">
+                        <span class="sensor-label">Umidade do solo</span>
+                        <span id="soloValue" class="sensor-value">--</span>
+                        <span id="soloStatus" class="sensor-status">Aguardando</span>
+                    </div>
+
+                </div>
+
+                <small id="sensoresAtualizadoEm" class="hint">Última leitura: --</small>
+
+            </section>
+
+        </section>
+
+
+        <!-- ABA: RELÉ -->
+
+        <section class="tab-content" data-tab-content="rele">
+
+            <section class="card">
+
+                <div class="card-header">
+
+                    <h2>🔌 Eventos do Relé</h2>
+
+                    <button id="clearReleButton" class="clear-button">Limpar</button>
+
+                </div>
+
+                <div id="releLog" class="event-log">Nenhum evento de relé ainda.</div>
+
+            </section>
+
+        </section>
+
+
+        <!-- ABA: FALHAS -->
+
+        <section class="tab-content" data-tab-content="falhas">
+
+            <section class="card">
+
+                <div class="card-header">
+
+                    <h2>⚠️ Falhas</h2>
+
+                    <button id="clearFalhasButton" class="clear-button">Limpar</button>
+
+                </div>
+
+                <div id="falhasLog" class="event-log">Nenhuma falha registrada.</div>
+
+            </section>
+
+        </section>
+
+
+        <!-- ABA: CADASTRO -->
+
+        <section class="tab-content" data-tab-content="cadastro">
+
+            <section class="card">
+
+                <h2>🗂️ Cadastro do dispositivo</h2>
+
+                <p class="hint">
+                    Informações somente leitura, extraídas das mensagens da porta serial.
+                    Nenhum cadastro existente do sistema é alterado por esta tela.
+                </p>
+
+                <ul class="info-list">
+
+                    <li><strong>Status Arduino:</strong> <span id="cadastroConexao">Desconectado</span></li>
+                    <li><strong>Rede Wi-Fi:</strong> <span id="cadastroWifi">--</span></li>
+                    <li><strong>IP do ESP32:</strong> <span id="cadastroIp">--</span></li>
+
+                </ul>
+
+            </section>
+
+        </section>
+
+
+        <!-- RODAPÉ -->
+
+        <footer>
+
+            Arduino Pump Monitor
+
+        </footer>
+
+    </main>
+
+
+    <script src="js/script.js"></script>
+
+</body>
+
+</html>
