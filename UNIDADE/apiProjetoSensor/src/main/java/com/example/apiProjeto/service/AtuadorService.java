@@ -13,17 +13,22 @@ import com.example.apiProjeto.model.SensorData;
 public class AtuadorService {
 
     public static final int DURACAO_MANUAL_MAXIMA_SEGUNDOS = 55;
+    // Aquecedor fica ligado por menos tempo que os demais reles por seguranca.
+    public static final int DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS = 20;
 
     private boolean modoAutomatico;
     private boolean bombaAutomatica;
     private boolean coolerAutomatico;
+    private boolean temperaturaAutomatica;
     private Instant bombaManualAte = Instant.EPOCH;
     private Instant coolerManualAte = Instant.EPOCH;
+    private Instant temperaturaManualAte = Instant.EPOCH;
 
     public synchronized void atualizarLeitura(Cultivo cultivo, SensorData dados) {
         if (!modoAutomatico || cultivo == null || dados == null) {
             bombaAutomatica = false;
             coolerAutomatico = false;
+            temperaturaAutomatica = false;
             return;
         }
 
@@ -31,6 +36,7 @@ public class AtuadorService {
         bombaAutomatica = umidadeSolo != null
                 && umidadeSolo < cultivo.getUmidadeSoloMinima();
         coolerAutomatico = dados.getTemperatura() > cultivo.getTemperaturaMaxima();
+        temperaturaAutomatica = dados.getTemperatura() < cultivo.getTemperaturaMinima();
     }
 
     public synchronized Map<String, Object> definirModoAutomatico(boolean ativo) {
@@ -38,20 +44,24 @@ public class AtuadorService {
         if (!ativo) {
             bombaAutomatica = false;
             coolerAutomatico = false;
+            temperaturaAutomatica = false;
         }
         return obterEstado();
     }
 
     public synchronized Map<String, Object> acionarManual(String atuador, int duracaoSegundos) {
-        if (duracaoSegundos < 1 || duracaoSegundos > DURACAO_MANUAL_MAXIMA_SEGUNDOS) {
+        String chave = atuador.toLowerCase();
+        int duracaoMaxima = chave.equals("temperatura") ? DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS : DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+        if (duracaoSegundos < 1 || duracaoSegundos > duracaoMaxima) {
             throw new IllegalArgumentException(
-                    "A duracao manual deve estar entre 1 e " + DURACAO_MANUAL_MAXIMA_SEGUNDOS + " segundos.");
+                    "A duracao manual deve estar entre 1 e " + duracaoMaxima + " segundos.");
         }
 
         Instant ate = Instant.now().plusSeconds(duracaoSegundos);
-        switch (atuador.toLowerCase()) {
+        switch (chave) {
             case "bomba" -> bombaManualAte = ate;
             case "cooler" -> coolerManualAte = ate;
+            case "temperatura" -> temperaturaManualAte = ate;
             default -> throw new IllegalArgumentException("Atuador invalido: " + atuador);
         }
         return obterEstado();
@@ -61,13 +71,16 @@ public class AtuadorService {
         Instant agora = Instant.now();
         boolean bombaManual = agora.isBefore(bombaManualAte);
         boolean coolerManual = agora.isBefore(coolerManualAte);
+        boolean temperaturaManual = agora.isBefore(temperaturaManualAte);
 
         return Map.of(
                 "modoAutomatico", modoAutomatico,
                 "bombaLigada", bombaAutomatica || bombaManual,
                 "coolerLigado", coolerAutomatico || coolerManual,
+                "temperaturaLigada", temperaturaAutomatica || temperaturaManual,
                 "bombaManualRestanteSegundos", segundosRestantes(bombaManualAte, agora),
-                "coolerManualRestanteSegundos", segundosRestantes(coolerManualAte, agora));
+                "coolerManualRestanteSegundos", segundosRestantes(coolerManualAte, agora),
+                "temperaturaManualRestanteSegundos", segundosRestantes(temperaturaManualAte, agora));
     }
 
     private long segundosRestantes(Instant ate, Instant agora) {

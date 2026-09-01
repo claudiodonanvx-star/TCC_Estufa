@@ -12,6 +12,8 @@ import br.com.estufa.desktop.service.AnalyticsService;
 import br.com.estufa.desktop.service.ApiService;
 import br.com.estufa.desktop.service.ExportService;
 import br.com.estufa.desktop.ui.MainDashboardView;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -54,7 +56,9 @@ public class DesktopUnidadeApp extends Application {
                 currentSession.role(),
                 this::refreshData,
                 (period, format) -> export(stage, period, format),
-                data -> consolidar(data)
+                data -> consolidar(data),
+                this::alterarModoAutomatico,
+                this::acionarAtuador
         );
 
         Scene scene = new Scene(dashboardView, 1520, 900);
@@ -160,7 +164,14 @@ public class DesktopUnidadeApp extends Application {
                     alertas = List.of();
                 }
 
-                return new RefreshResult(apiOnline, cultivo, all.size(), map, all, historico, alertas);
+                JsonNode atuadores;
+                try {
+                    atuadores = apiService.fetchAtuadoresEstado();
+                } catch (Exception e) {
+                    atuadores = JsonNodeFactory.instance.objectNode();
+                }
+
+                return new RefreshResult(apiOnline, cultivo, all.size(), map, all, historico, alertas, atuadores);
             }
         };
 
@@ -169,6 +180,7 @@ public class DesktopUnidadeApp extends Application {
             dashboardView.applyData(result.byPeriod(), result.cultivo(), result.apiOnline(), result.samples(), result.allSamples());
             dashboardView.applyHistorico(result.historico());
             dashboardView.applyAlertas(result.alertas());
+            dashboardView.applyAtuadores(result.atuadores());
         });
 
         task.setOnFailed(event -> {
@@ -304,5 +316,43 @@ public class DesktopUnidadeApp extends Application {
 
     private record RefreshResult(boolean apiOnline, Cultivo cultivo, int samples,
                                   Map<PeriodType, PeriodData> byPeriod, List<SensorData> allSamples,
-                                  List<RelatorioDiario> historico, List<Alerta> alertas) {}
+                                  List<RelatorioDiario> historico, List<Alerta> alertas, JsonNode atuadores) {}
+
+    private void alterarModoAutomatico(boolean ativo) {
+        Task<JsonNode> task = new Task<>() {
+            @Override
+            protected JsonNode call() throws Exception {
+                return apiService.definirModoAutomaticoAtuadores(ativo);
+            }
+        };
+
+        task.setOnSucceeded(event -> dashboardView.applyAtuadores(task.getValue()));
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            dashboardView.showError("Erro ao alterar modo dos reles: " + (ex == null ? "Desconhecido" : ex.getMessage()));
+        });
+
+        Thread thread = new Thread(task, "atuador-modo");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void acionarAtuador(String atuador, int duracaoSegundos) {
+        Task<JsonNode> task = new Task<>() {
+            @Override
+            protected JsonNode call() throws Exception {
+                return apiService.acionarAtuador(atuador, duracaoSegundos);
+            }
+        };
+
+        task.setOnSucceeded(event -> dashboardView.applyAtuadores(task.getValue()));
+        task.setOnFailed(event -> {
+            Throwable ex = task.getException();
+            dashboardView.showError("Erro ao acionar " + atuador + ": " + (ex == null ? "Desconhecido" : ex.getMessage()));
+        });
+
+        Thread thread = new Thread(task, "atuador-acionar");
+        thread.setDaemon(true);
+        thread.start();
+    }
 }

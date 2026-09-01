@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/Perfil/perfil_page.dart';
 import 'package:flutter_application_1/iot/TelaDados.dart';
 import 'package:flutter_application_1/cadastro/telaInicial.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(
@@ -459,8 +460,42 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class MonitorSerialWebPage extends StatelessWidget {
+class MonitorSerialWebPage extends StatefulWidget {
   const MonitorSerialWebPage({super.key});
+
+  static const String monitorUrl = 'https://api-estufa.onrender.com';
+
+  @override
+  State<MonitorSerialWebPage> createState() => _MonitorSerialWebPageState();
+}
+
+class _MonitorSerialWebPageState extends State<MonitorSerialWebPage> {
+  bool _abrindo = false;
+  String? _mensagemErro;
+
+  Future<void> _abrirMonitor() async {
+    setState(() {
+      _abrindo = true;
+      _mensagemErro = null;
+    });
+
+    try {
+      final uri = Uri.parse(MonitorSerialWebPage.monitorUrl);
+      final abriu = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!abriu) {
+        throw Exception('Nenhum aplicativo respondeu à solicitação.');
+      }
+    } catch (_) {
+      _mensagemErro =
+          'Não foi possível abrir o monitor. Verifique sua conexão com a internet.';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _abrindo = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -493,10 +528,42 @@ class MonitorSerialWebPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Esta funcionalidade ainda não está disponível.',
+                  'Acompanhe sensores, relé e falhas da unidade em tempo real.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: _EcoPalette.text),
                 ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _abrindo ? null : _abrirMonitor,
+                  icon:
+                      _abrindo
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : const Icon(Icons.open_in_new),
+                  label: Text(_abrindo ? 'Abrindo...' : 'Abrir Monitor'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _EcoPalette.deep,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 20,
+                    ),
+                  ),
+                ),
+                if (_mensagemErro != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _mensagemErro!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                ],
               ],
             ),
           ),

@@ -32,6 +32,7 @@ DHT dht(DHTPIN, DHTTYPE);
 const int soloSecoADC = 3200;
 const int soloMolhadoADC = 1500;
 const int soloDesconectadoADC = 100;
+const int soloFlutuandoADC = 4000;
 
 // LED RGB
 #define RED_PIN 14
@@ -41,9 +42,10 @@ const int soloDesconectadoADC = 100;
 // For common-anode RGB LEDs, set to true to invert channel values.
 const bool RGB_COMMON_ANODE = false;
 
-// Modulo de rele: IN1 (bomba) no GPIO18 e IN2 (cooler) no GPIO19.
+// Modulo de rele: IN1 (bomba) no GPIO18, IN2 (cooler) no GPIO19 e IN3 (aquecedor) no GPIO21.
 const int BOMBA_RELAY_PIN = 18;
 const int COOLER_RELAY_PIN = 19;
+const int AQUECEDOR_RELAY_PIN = 21;
 const bool RELE_ATIVO_EM_NIVEL_BAIXO = true;
 
 #if defined(ESP32)
@@ -125,6 +127,7 @@ void setRele(int pin, bool ligado) {
 void desligarAtuadores() {
   setRele(BOMBA_RELAY_PIN, false);
   setRele(COOLER_RELAY_PIN, false);
+  setRele(AQUECEDOR_RELAY_PIN, false);
 }
 
 void atualizarAtuadoresDaApi() {
@@ -146,13 +149,18 @@ void atualizarAtuadoresDaApi() {
     if (!erro) {
       bool bombaLigada = doc["bombaLigada"] | false;
       bool coolerLigado = doc["coolerLigado"] | false;
+      // Aquecedor (IN3): fica ligado por menos tempo que os demais reles (limite ja aplicado pela API), por seguranca.
+      bool aquecedorLigado = doc["temperaturaLigada"] | false;
       setRele(BOMBA_RELAY_PIN, bombaLigada);
       setRele(COOLER_RELAY_PIN, coolerLigado);
+      setRele(AQUECEDOR_RELAY_PIN, aquecedorLigado);
 
       Serial.print("Bomba: ");
       Serial.println(bombaLigada ? "ligada" : "desligada");
       Serial.print("Cooler: ");
       Serial.println(coolerLigado ? "ligado" : "desligado");
+      Serial.print("Aquecedor: ");
+      Serial.println(aquecedorLigado ? "ligado" : "desligado");
     } else {
       Serial.println("Erro ao interpretar estado dos atuadores");
       desligarAtuadores();
@@ -253,7 +261,11 @@ float lerUmidadeSoloPercentual() {
   }
 
   int leituraMedia = soma / amostras;
-  if (leituraMedia <= soloDesconectadoADC) {
+
+  Serial.print("🔎 Solo ADC bruto: ");
+  Serial.println(leituraMedia);
+
+  if (leituraMedia <= soloDesconectadoADC || leituraMedia >= soloFlutuandoADC) {
     return NAN;
   }
 
@@ -272,6 +284,7 @@ void setup() {
   pinMode(SOIL_PIN, INPUT);
   pinMode(BOMBA_RELAY_PIN, OUTPUT);
   pinMode(COOLER_RELAY_PIN, OUTPUT);
+  pinMode(AQUECEDOR_RELAY_PIN, OUTPUT);
   desligarAtuadores();
 
   initRgb();

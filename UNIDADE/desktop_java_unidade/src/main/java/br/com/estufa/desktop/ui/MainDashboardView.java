@@ -1,5 +1,14 @@
 package br.com.estufa.desktop.ui;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
 import br.com.estufa.desktop.model.Alerta;
 import br.com.estufa.desktop.model.Cultivo;
 import br.com.estufa.desktop.model.PeriodData;
@@ -14,18 +23,31 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.chart.*;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.PieChart;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.util.Duration;
-
-import java.util.EnumMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class MainDashboardView extends BorderPane {
 
@@ -59,6 +81,7 @@ public class MainDashboardView extends BorderPane {
     private CultivoTabView cultivoTabView;
     private HistoricoTabView historicoTabView;
     private AlertasTabView alertasTabView;
+    private AtuadoresTabView atuadoresTabView;
     private List<SensorData> lastSamples = List.of();
     private Cultivo lastCultivo;
 
@@ -68,7 +91,9 @@ public class MainDashboardView extends BorderPane {
 
     public MainDashboardView(String username, UserRole userRole, Runnable refreshCallback,
                              BiConsumer<PeriodType, String> exportCallback,
-                             Consumer<String> onConsolidar) {
+                             Consumer<String> onConsolidar,
+                             Consumer<Boolean> onToggleModoAutomatico,
+                             BiConsumer<String, Integer> onAcionarAtuador) {
         this.username = username;
         this.userRole = userRole;
         this.exportCallback = exportCallback;
@@ -90,6 +115,7 @@ public class MainDashboardView extends BorderPane {
         cultivoTabView = new CultivoTabView();
         historicoTabView = new HistoricoTabView(userRole, onConsolidar);
         alertasTabView = new AlertasTabView();
+        atuadoresTabView = new AtuadoresTabView(onToggleModoAutomatico, onAcionarAtuador);
 
         setTop(buildHeader(refreshCallback));
         setCenter(buildTabs());
@@ -179,6 +205,10 @@ public class MainDashboardView extends BorderPane {
         Tab alertasTab = new Tab("Alertas", alertasTabView);
         alertasTab.setClosable(false);
         tabPane.getTabs().add(alertasTab);
+
+        Tab atuadoresTab = new Tab("Reles", atuadoresTabView);
+        atuadoresTab.setClosable(false);
+        tabPane.getTabs().add(atuadoresTab);
 
         if (canViewReports()) {
             Tab reports = new Tab("Relatorios Inteligentes", buildReportsTab());
@@ -365,6 +395,10 @@ public class MainDashboardView extends BorderPane {
             alertaBadge.setStyle("-fx-background-color: #b42318; -fx-text-fill: white; -fx-padding: 4 10 4 10; -fx-background-radius: 8; -fx-font-weight: bold;");
             alertaBadge.setVisible(true);
         }
+    }
+
+    public void applyAtuadores(JsonNode estado) {
+        atuadoresTabView.applyEstado(estado);
     }
 
     private void startRefreshTimer(Runnable refreshCallback) {

@@ -40,7 +40,10 @@ public class AtuadorController {
             @PathVariable String atuador,
             @RequestBody Map<String, Integer> comando) {
         try {
-            int duracaoSegundos = comando.getOrDefault("duracaoSegundos", AtuadorService.DURACAO_MANUAL_MAXIMA_SEGUNDOS);
+            int duracaoPadrao = "temperatura".equalsIgnoreCase(atuador)
+                    ? AtuadorService.DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS
+                    : AtuadorService.DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+            int duracaoSegundos = comando.getOrDefault("duracaoSegundos", duracaoPadrao);
             return ResponseEntity.ok(atuadorService.acionarManual(atuador, duracaoSegundos));
         } catch (IllegalArgumentException erro) {
             return ResponseEntity.badRequest().body(Map.of("erro", erro.getMessage()));

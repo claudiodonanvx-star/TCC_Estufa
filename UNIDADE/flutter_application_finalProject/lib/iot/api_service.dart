@@ -250,12 +250,13 @@ Future<Map<String, dynamic>> definirModoAutomatico(
 
 Future<Map<String, dynamic>> acionarAtuadorManual(
   String ipAtual,
-  String atuador,
-) async {
+  String atuador, {
+  int duracaoSegundos = 55,
+}) async {
   final response = await http.post(
     Uri.parse('$ipAtual/api/atuadores/$atuador/acionar'),
     headers: {'Content-Type': 'application/json'},
-    body: json.encode({'duracaoSegundos': 55}),
+    body: json.encode({'duracaoSegundos': duracaoSegundos}),
   );
 
   if (response.statusCode != 200) {

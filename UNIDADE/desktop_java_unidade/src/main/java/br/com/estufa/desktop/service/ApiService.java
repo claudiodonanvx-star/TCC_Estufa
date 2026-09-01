@@ -1,13 +1,5 @@
 package br.com.estufa.desktop.service;
 
-import br.com.estufa.desktop.model.Alerta;
-import br.com.estufa.desktop.model.Cultivo;
-import br.com.estufa.desktop.model.RelatorioDiario;
-import br.com.estufa.desktop.model.SensorData;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,6 +7,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.com.estufa.desktop.model.Alerta;
+import br.com.estufa.desktop.model.Cultivo;
+import br.com.estufa.desktop.model.RelatorioDiario;
+import br.com.estufa.desktop.model.SensorData;
 
 public class ApiService {
     private static final String DEFAULT_BASE_URL = "https://api-estufa.onrender.com";
@@ -165,6 +166,47 @@ public class ApiService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         ensureOk(response.statusCode(), response.body(), "/api/alertas");
         return objectMapper.readValue(response.body(), new TypeReference<>() {});
+    }
+
+    /** Retorna o estado atual dos reles (bomba, cooler, temperatura) e do modo automatico. */
+    public JsonNode fetchAtuadoresEstado() throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/atuadores"))
+                .timeout(Duration.ofSeconds(8))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensureOk(response.statusCode(), response.body(), "/api/atuadores");
+        return parseJsonOrEmpty(response.body());
+    }
+
+    public JsonNode acionarAtuador(String atuador, int duracaoSegundos) throws IOException, InterruptedException {
+        String payload = "{\"duracaoSegundos\":" + duracaoSegundos + "}";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/atuadores/" + atuador + "/acionar"))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(8))
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensureOk(response.statusCode(), response.body(), "/api/atuadores/" + atuador + "/acionar");
+        return parseJsonOrEmpty(response.body());
+    }
+
+    public JsonNode definirModoAutomaticoAtuadores(boolean ativo) throws IOException, InterruptedException {
+        String payload = "{\"modoAutomatico\":" + ativo + "}";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/atuadores/modo"))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(8))
+                .PUT(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensureOk(response.statusCode(), response.body(), "/api/atuadores/modo");
+        return parseJsonOrEmpty(response.body());
     }
 
     /** Retorna info do /api/ping: status, versao, uptimeMinutos, totalLeituras, alertas24h */

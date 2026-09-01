@@ -29,6 +29,7 @@ class _TelaDadosState extends State<TelaDados> {
   bool _modoAutomatico = false;
   bool _bombaLigada = false;
   bool _coolerLigado = false;
+  bool _temperaturaLigada = false;
 
   Cultivo? _cultivoAtual;
   List<Cultivo> _cultivosDisponiveis = [];
@@ -134,6 +135,7 @@ class _TelaDadosState extends State<TelaDados> {
         _modoAutomatico = estado['modoAutomatico'] == true;
         _bombaLigada = estado['bombaLigada'] == true;
         _coolerLigado = estado['coolerLigado'] == true;
+        _temperaturaLigada = estado['temperaturaLigada'] == true;
       });
     } catch (_) {}
   }
@@ -144,6 +146,7 @@ class _TelaDadosState extends State<TelaDados> {
       _modoAutomatico = estado['modoAutomatico'] == true;
       _bombaLigada = estado['bombaLigada'] == true;
       _coolerLigado = estado['coolerLigado'] == true;
+      _temperaturaLigada = estado['temperaturaLigada'] == true;
     });
   }
 
@@ -1121,12 +1124,19 @@ class _TelaDadosState extends State<TelaDados> {
                                       Colors.brown.shade400,
                                     ),
                                     _buildFeatureCard(
-                                      titulo: 'CO2',
-                                      subtitulo: 'Sensor',
-                                      valor: 'Em breve',
-                                      icone: Icons.cloud,
-                                      cor: Colors.purple.shade400,
-                                      descricao: 'Sensor',
+                                      titulo: 'Aquecedor',
+                                      subtitulo: 'Relé',
+                                      valor:
+                                          _temperaturaLigada
+                                              ? 'Ligado'
+                                              : 'Desligado',
+                                      icone: Icons.local_fire_department,
+                                      cor: Colors.orange.shade400,
+                                      onTap:
+                                          () => _confirmarAcaoRele(
+                                            titulo: 'Aquecedor',
+                                            chave: 'temperatura',
+                                          ),
                                     ),
                                     _buildFeatureCard(
                                       titulo: 'Cooler',
@@ -1482,13 +1492,16 @@ class _TelaDadosState extends State<TelaDados> {
     );
   }
 
-  Future<void> _confirmarAcaoRele({required String titulo}) async {
+  Future<void> _confirmarAcaoRele({required String titulo, String? chave}) async {
+    final duracaoMaxima = chave == 'temperatura' ? 20 : 55;
     final ativar = await showDialog<bool>(
       context: context,
       builder:
           (dialogContext) => AlertDialog(
             title: Text('Ativar $titulo?'),
-            content: Text('O relé será ativado por no máximo 55 segundos.'),
+            content: Text(
+              'O relé será ativado por no máximo $duracaoMaxima segundos.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -1505,11 +1518,15 @@ class _TelaDadosState extends State<TelaDados> {
     if (ativar != true || !mounted) return;
 
     try {
-      final estado = await acionarAtuadorManual(ipAtual, titulo.toLowerCase());
+      final estado = await acionarAtuadorManual(
+        ipAtual,
+        chave ?? titulo.toLowerCase(),
+        duracaoSegundos: duracaoMaxima,
+      );
       _atualizarEstadoAtuadores(estado);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$titulo ativado por até 55 segundos.')),
+        SnackBar(content: Text('$titulo ativado por até $duracaoMaxima segundos.')),
       );
     } catch (e) {
       if (!mounted) return;
