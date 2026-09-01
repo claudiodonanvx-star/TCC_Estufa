@@ -14,7 +14,7 @@ public class AtuadorService {
 
     public static final int DURACAO_MANUAL_MAXIMA_SEGUNDOS = 55;
     // Aquecedor fica ligado por menos tempo que os demais reles por seguranca.
-    public static final int DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS = 20;
+    public static final int DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS = 35;
 
     private boolean modoAutomatico;
     private boolean bombaAutomatica;

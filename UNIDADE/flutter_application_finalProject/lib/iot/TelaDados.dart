@@ -1493,7 +1493,7 @@ class _TelaDadosState extends State<TelaDados> {
   }
 
   Future<void> _confirmarAcaoRele({required String titulo, String? chave}) async {
-    final duracaoMaxima = chave == 'temperatura' ? 20 : 55;
+    final duracaoMaxima = chave == 'temperatura' ? 35 : 55;
     final ativar = await showDialog<bool>(
       context: context,
       builder:

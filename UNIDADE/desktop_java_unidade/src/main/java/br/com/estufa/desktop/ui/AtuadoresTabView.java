@@ -19,7 +19,7 @@ public class AtuadoresTabView extends VBox {
 
     private static final int DURACAO_MANUAL_SEGUNDOS = 55;
     // Aquecedor fica ligado por menos tempo que os demais reles por seguranca.
-    private static final int DURACAO_AQUECEDOR_SEGUNDOS = 20;
+    private static final int DURACAO_AQUECEDOR_SEGUNDOS = 35;
 
     private final CheckBox modoAutomaticoCheck = new CheckBox("Modo automatico");
     private final ReleCard bombaCard = new ReleCard("Bomba");
