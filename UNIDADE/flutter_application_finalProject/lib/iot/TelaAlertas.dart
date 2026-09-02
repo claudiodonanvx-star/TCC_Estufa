@@ -77,20 +77,26 @@ class _TelaAlertasState extends State<TelaAlertas> {
     return Scaffold(
       backgroundColor: _cinzaFundo,
       appBar: AppBar(
-        title: const Text('Alertas & IA'),
+        title: const Text('Alertas & Tendências'),
         backgroundColor: _verde,
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
-      body: Column(
-        children: [
-          _buildResumo(),
-          _buildSelecionarCenario(),
-          _buildFiltros(),
-          Expanded(child: _buildLista()),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _carregar,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _buildResumo(),
+              _buildSelecionarCenario(),
+              _buildFiltros(),
+              _buildLista(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -107,7 +113,7 @@ class _TelaAlertasState extends State<TelaAlertas> {
             children: [
               Expanded(
                 child: Text(
-                  'Resumo inteligente da estufa',
+                  'Resumo e tendência da estufa',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -386,14 +392,13 @@ class _TelaAlertasState extends State<TelaAlertas> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _carregar,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(14),
-        itemCount: lista.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (_, i) => _buildCard(lista[i]),
-      ),
+    return ListView.separated(
+      padding: const EdgeInsets.all(14),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: lista.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) => _buildCard(lista[i]),
     );
   }
 

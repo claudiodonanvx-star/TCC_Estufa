@@ -19,11 +19,11 @@ body {
     background:
         linear-gradient(
             135deg,
-            #0f172a,
-            #1e293b
+            #F2FFF6,
+            #E3F7EC
         );
 
-    color: #e2e8f0;
+    color: #1F2937;
 
     min-height: 100vh;
 
@@ -57,7 +57,7 @@ body {
 }
 
 .header p {
-    color: #94a3b8;
+    color: #6B7280;
     font-size: 16px;
 }
 
@@ -67,9 +67,9 @@ body {
 ========================================================= */
 
 .card {
-    background: #1e293b;
+    background: #FFFFFF;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
     border-radius: 16px;
 
@@ -78,7 +78,7 @@ body {
     margin-bottom: 20px;
 
     box-shadow:
-        0 10px 30px rgba(0, 0, 0, 0.25);
+        0 10px 30px rgba(14, 125, 99, 0.08);
 }
 
 
@@ -115,7 +115,7 @@ body {
 .connection-info small {
     display: block;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     margin-top: 4px;
 }
@@ -177,14 +177,14 @@ body {
 /* Botão conectar */
 
 .button-connect {
-    background: #16a34a;
+    background: #0E7D63;
 
     color: white;
 }
 
 .button-connect:hover {
     box-shadow:
-        0 5px 20px rgba(22, 163, 74, 0.4);
+        0 5px 20px rgba(14, 125, 99, 0.35);
 }
 
 
@@ -201,11 +201,11 @@ body {
 }
 
 .api-config input {
-    background: #0f172a;
+    background: #FFFFFF;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
-    color: #e2e8f0;
+    color: #1F2937;
 
     border-radius: 10px;
 
@@ -219,7 +219,7 @@ body {
 .api-config input:focus {
     outline: none;
 
-    border-color: #16a34a;
+    border-color: #0E7D63;
 }
 
 
@@ -245,9 +245,9 @@ body {
 /* Área do monitor */
 
 .serial-monitor {
-    background: #020617;
+    background: #F8FAF9;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
     border-radius: 10px;
 
@@ -265,7 +265,7 @@ body {
 
     font-size: 14px;
 
-    color: #22c55e;
+    color: #0E7D63;
 }
 
 
@@ -274,9 +274,9 @@ body {
 .clear-button {
     background: transparent;
 
-    border: 1px solid #475569;
+    border: 1px solid #CBD5C0;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     border-radius: 7px;
 
@@ -286,9 +286,9 @@ body {
 }
 
 .clear-button:hover {
-    background: #334155;
+    background: #E6F4EC;
 
-    color: white;
+    color: #123524;
 }
 
 
@@ -299,9 +299,9 @@ body {
 .warning {
     display: none;
 
-    background: #422006;
+    background: #FFFBEB;
 
-    color: #fbbf24;
+    color: #92400E;
 
     padding: 15px;
 
@@ -309,7 +309,7 @@ body {
 
     margin-bottom: 20px;
 
-    border: 1px solid #92400e;
+    border: 1px solid #FDE68A;
 }
 
 
@@ -317,7 +317,7 @@ body {
 footer {
     text-align: center;
 
-    color: #64748b;
+    color: #6B7280;
 
     font-size: 13px;
 
@@ -340,11 +340,11 @@ footer {
 }
 
 .tab-button {
-    background: #1e293b;
+    background: #FFFFFF;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     border-radius: 10px;
 
@@ -363,13 +363,13 @@ footer {
 }
 
 .tab-button:hover {
-    color: #e2e8f0;
+    color: #123524;
 }
 
 .tab-button.active {
-    background: #16a34a;
+    background: #0E7D63;
 
-    border-color: #16a34a;
+    border-color: #0E7D63;
 
     color: white;
 }
@@ -398,9 +398,9 @@ footer {
 }
 
 .sensor-item {
-    background: #0f172a;
+    background: #FFFFFF;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
     border-radius: 12px;
 
@@ -412,7 +412,7 @@ footer {
 .sensor-label {
     display: block;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     font-size: 13px;
 
@@ -440,9 +440,9 @@ footer {
 
     border-radius: 999px;
 
-    background: #334155;
+    background: #EEF2F6;
 
-    color: #94a3b8;
+    color: #6B7280;
 }
 
 .sensor-status.ok {
@@ -463,9 +463,9 @@ footer {
 ========================================================= */
 
 .event-log {
-    background: #020617;
+    background: #F8FAF9;
 
-    border: 1px solid #334155;
+    border: 1px solid #CFEEDD;
 
     border-radius: 10px;
 
@@ -481,7 +481,7 @@ footer {
 
     font-size: 14px;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     white-space: pre-wrap;
 }
@@ -491,7 +491,7 @@ footer {
 
     padding: 6px 0;
 
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid #E6F4EC;
 }
 
 .event-log .log-item:last-child {
@@ -514,7 +514,7 @@ footer {
 .hint {
     display: block;
 
-    color: #94a3b8;
+    color: #6B7280;
 
     font-size: 13px;
 
@@ -528,7 +528,7 @@ footer {
 .info-list li {
     padding: 10px 0;
 
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid #E6F4EC;
 
     font-size: 14px;
 }
@@ -538,7 +538,7 @@ footer {
 }
 
 .info-list strong {
-    color: #e2e8f0;
+    color: #123524;
 }
 
 
