@@ -1,6 +1,18 @@
 package br.com.estufa.desktop;
 
-import br.com.estufa.desktop.model.Alerta;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
 import br.com.estufa.desktop.model.Cultivo;
 import br.com.estufa.desktop.model.PeriodData;
 import br.com.estufa.desktop.model.PeriodType;
@@ -12,27 +24,21 @@ import br.com.estufa.desktop.service.AnalyticsService;
 import br.com.estufa.desktop.service.ApiService;
 import br.com.estufa.desktop.service.ExportService;
 import br.com.estufa.desktop.ui.MainDashboardView;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public class DesktopUnidadeApp extends Application {
 
@@ -157,13 +163,6 @@ public class DesktopUnidadeApp extends Application {
 
                 List<RelatorioDiario> historico = fetchHistorico(historicoPeriodo);
 
-                List<Alerta> alertas;
-                try {
-                    alertas = apiService.fetchAlertas();
-                } catch (Exception e) {
-                    alertas = List.of();
-                }
-
                 JsonNode atuadores;
                 try {
                     atuadores = apiService.fetchAtuadoresEstado();
@@ -171,7 +170,7 @@ public class DesktopUnidadeApp extends Application {
                     atuadores = JsonNodeFactory.instance.objectNode();
                 }
 
-                return new RefreshResult(apiOnline, cultivo, all.size(), map, all, historico, alertas, atuadores);
+                return new RefreshResult(apiOnline, cultivo, all.size(), map, all, historico, atuadores);
             }
         };
 
@@ -179,7 +178,6 @@ public class DesktopUnidadeApp extends Application {
             RefreshResult result = task.getValue();
             dashboardView.applyData(result.byPeriod(), result.cultivo(), result.apiOnline(), result.samples(), result.allSamples());
             dashboardView.applyHistorico(result.historico());
-            dashboardView.applyAlertas(result.alertas());
             dashboardView.applyAtuadores(result.atuadores());
         });
 
@@ -316,7 +314,7 @@ public class DesktopUnidadeApp extends Application {
 
     private record RefreshResult(boolean apiOnline, Cultivo cultivo, int samples,
                                   Map<PeriodType, PeriodData> byPeriod, List<SensorData> allSamples,
-                                  List<RelatorioDiario> historico, List<Alerta> alertas, JsonNode atuadores) {}
+                                  List<RelatorioDiario> historico, JsonNode atuadores) {}
 
     private void alterarModoAutomatico(boolean ativo) {
         Task<JsonNode> task = new Task<>() {

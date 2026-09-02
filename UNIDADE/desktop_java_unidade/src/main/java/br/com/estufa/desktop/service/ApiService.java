@@ -12,7 +12,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import br.com.estufa.desktop.model.Alerta;
 import br.com.estufa.desktop.model.Cultivo;
 import br.com.estufa.desktop.model.RelatorioDiario;
 import br.com.estufa.desktop.model.SensorData;
@@ -154,18 +153,6 @@ public class ApiService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         ensureOk(response.statusCode(), response.body(), "/api/relatorios/export/csv");
         return response.body();
-    }
-
-    public List<Alerta> fetchAlertas() throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/api/alertas"))
-                .timeout(Duration.ofSeconds(12))
-                .GET()
-                .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        ensureOk(response.statusCode(), response.body(), "/api/alertas");
-        return objectMapper.readValue(response.body(), new TypeReference<>() {});
     }
 
     /** Retorna o estado atual dos reles (bomba, cooler, temperatura) e do modo automatico. */

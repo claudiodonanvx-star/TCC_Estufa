@@ -9,7 +9,6 @@ import java.util.function.Consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import br.com.estufa.desktop.model.Alerta;
 import br.com.estufa.desktop.model.Cultivo;
 import br.com.estufa.desktop.model.PeriodData;
 import br.com.estufa.desktop.model.PeriodType;
@@ -80,7 +79,6 @@ public class MainDashboardView extends BorderPane {
 
     private CultivoTabView cultivoTabView;
     private HistoricoTabView historicoTabView;
-    private AlertasTabView alertasTabView;
     private AtuadoresTabView atuadoresTabView;
     private List<SensorData> lastSamples = List.of();
     private Cultivo lastCultivo;
@@ -114,7 +112,6 @@ public class MainDashboardView extends BorderPane {
 
         cultivoTabView = new CultivoTabView();
         historicoTabView = new HistoricoTabView(userRole, onConsolidar);
-        alertasTabView = new AlertasTabView();
         atuadoresTabView = new AtuadoresTabView(onToggleModoAutomatico, onAcionarAtuador);
 
         setTop(buildHeader(refreshCallback));
@@ -201,10 +198,6 @@ public class MainDashboardView extends BorderPane {
         Tab historicoTab = new Tab("Historico Consolidado", historicoTabView);
         historicoTab.setClosable(false);
         tabPane.getTabs().add(historicoTab);
-
-        Tab alertasTab = new Tab("Alertas", alertasTabView);
-        alertasTab.setClosable(false);
-        tabPane.getTabs().add(alertasTab);
 
         Tab atuadoresTab = new Tab("Reles", atuadoresTabView);
         atuadoresTab.setClosable(false);
@@ -384,17 +377,6 @@ public class MainDashboardView extends BorderPane {
 
     public HistoricoTabView getHistoricoTabView() {
         return historicoTabView;
-    }
-
-    public void applyAlertas(List<Alerta> alertas) {
-        alertasTabView.applyData(alertas);
-        // Atualiza badge com base nos alertas reais do banco
-        int criticos = alertasTabView.getCriticosCount();
-        if (criticos > 0) {
-            alertaBadge.setText("\u26a0 " + criticos + " alerta(s) critico(s)");
-            alertaBadge.setStyle("-fx-background-color: #b42318; -fx-text-fill: white; -fx-padding: 4 10 4 10; -fx-background-radius: 8; -fx-font-weight: bold;");
-            alertaBadge.setVisible(true);
-        }
     }
 
     public void applyAtuadores(JsonNode estado) {
