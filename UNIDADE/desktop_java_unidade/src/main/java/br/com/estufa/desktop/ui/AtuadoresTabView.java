@@ -20,6 +20,8 @@ public class AtuadoresTabView extends VBox {
     private static final int DURACAO_MANUAL_SEGUNDOS = 55;
     // Aquecedor fica ligado por menos tempo que os demais reles por seguranca.
     private static final int DURACAO_AQUECEDOR_SEGUNDOS = 35;
+    // Bomba fica ligada por menos tempo para nao drenar a agua rapido demais.
+    private static final int DURACAO_BOMBA_SEGUNDOS = 15;
 
     private final CheckBox modoAutomaticoCheck = new CheckBox("Modo automatico");
     private final ReleCard bombaCard = new ReleCard("Bomba");
@@ -32,7 +34,7 @@ public class AtuadoresTabView extends VBox {
 
         modoAutomaticoCheck.setOnAction(e -> onToggleModoAutomatico.accept(modoAutomaticoCheck.isSelected()));
 
-        bombaCard.acionarButton.setOnAction(e -> onAcionar.accept("bomba", DURACAO_MANUAL_SEGUNDOS));
+        bombaCard.acionarButton.setOnAction(e -> onAcionar.accept("bomba", DURACAO_BOMBA_SEGUNDOS));
         coolerCard.acionarButton.setOnAction(e -> onAcionar.accept("cooler", DURACAO_MANUAL_SEGUNDOS));
         temperaturaCard.acionarButton.setOnAction(e -> onAcionar.accept("temperatura", DURACAO_AQUECEDOR_SEGUNDOS));
 

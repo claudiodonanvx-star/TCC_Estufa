@@ -15,6 +15,8 @@ public class AtuadorService {
     public static final int DURACAO_MANUAL_MAXIMA_SEGUNDOS = 55;
     // Aquecedor fica ligado por menos tempo que os demais reles por seguranca.
     public static final int DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS = 35;
+    // Bomba fica ligada por menos tempo para nao drenar a agua rapido demais.
+    public static final int DURACAO_BOMBA_MAXIMA_SEGUNDOS = 15;
 
     private boolean modoAutomatico;
     private boolean bombaAutomatica;
@@ -51,7 +53,11 @@ public class AtuadorService {
 
     public synchronized Map<String, Object> acionarManual(String atuador, int duracaoSegundos) {
         String chave = atuador.toLowerCase();
-        int duracaoMaxima = chave.equals("temperatura") ? DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS : DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+        int duracaoMaxima = switch (chave) {
+            case "temperatura" -> DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS;
+            case "bomba" -> DURACAO_BOMBA_MAXIMA_SEGUNDOS;
+            default -> DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+        };
         if (duracaoSegundos < 1 || duracaoSegundos > duracaoMaxima) {
             throw new IllegalArgumentException(
                     "A duracao manual deve estar entre 1 e " + duracaoMaxima + " segundos.");

@@ -1493,7 +1493,12 @@ class _TelaDadosState extends State<TelaDados> {
   }
 
   Future<void> _confirmarAcaoRele({required String titulo, String? chave}) async {
-    final duracaoMaxima = chave == 'temperatura' ? 35 : 55;
+    final chaveEfetiva = chave ?? titulo.toLowerCase();
+    final duracaoMaxima = switch (chaveEfetiva) {
+      'temperatura' => 35,
+      'bomba' => 15,
+      _ => 55,
+    };
     final ativar = await showDialog<bool>(
       context: context,
       builder:
@@ -1520,7 +1525,7 @@ class _TelaDadosState extends State<TelaDados> {
     try {
       final estado = await acionarAtuadorManual(
         ipAtual,
-        chave ?? titulo.toLowerCase(),
+        chaveEfetiva,
         duracaoSegundos: duracaoMaxima,
       );
       _atualizarEstadoAtuadores(estado);

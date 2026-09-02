@@ -40,9 +40,14 @@ public class AtuadorController {
             @PathVariable String atuador,
             @RequestBody Map<String, Integer> comando) {
         try {
-            int duracaoPadrao = "temperatura".equalsIgnoreCase(atuador)
-                    ? AtuadorService.DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS
-                    : AtuadorService.DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+            int duracaoPadrao;
+            if ("temperatura".equalsIgnoreCase(atuador)) {
+                duracaoPadrao = AtuadorService.DURACAO_AQUECEDOR_MAXIMA_SEGUNDOS;
+            } else if ("bomba".equalsIgnoreCase(atuador)) {
+                duracaoPadrao = AtuadorService.DURACAO_BOMBA_MAXIMA_SEGUNDOS;
+            } else {
+                duracaoPadrao = AtuadorService.DURACAO_MANUAL_MAXIMA_SEGUNDOS;
+            }
             int duracaoSegundos = comando.getOrDefault("duracaoSegundos", duracaoPadrao);
             return ResponseEntity.ok(atuadorService.acionarManual(atuador, duracaoSegundos));
         } catch (IllegalArgumentException erro) {
