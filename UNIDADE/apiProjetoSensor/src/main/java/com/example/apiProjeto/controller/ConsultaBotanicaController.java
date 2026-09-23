@@ -1,6 +1,7 @@
 package com.example.apiProjeto.controller;
 
 import java.util.Map;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -28,10 +29,11 @@ public class ConsultaBotanicaController {
         String pergunta = texto(dados.get("pergunta"));
         Double umidade = numero(dados.get("umidadeAtual"));
         Double temperatura = numero(dados.get("temperaturaAtual"));
+        List<Map<String, String>> historico = historico(dados.get("historico"));
         if (pergunta.isBlank() && planta.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("mensagem", "Informe a planta ou a pergunta."));
         }
-        return ResponseEntity.ok(service.consultar(planta, pergunta, umidade, temperatura));
+        return ResponseEntity.ok(service.consultar(planta, pergunta, umidade, temperatura, historico));
     }
 
     private String texto(Object valor) {
@@ -47,5 +49,20 @@ public class ConsultaBotanicaController {
         } catch (NumberFormatException erro) {
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, String>> historico(Object valor) {
+        if (!(valor instanceof List<?> lista)) {
+            return List.of();
+        }
+        return lista.stream()
+                .filter(item -> item instanceof Map<?, ?>)
+                .map(item -> ((Map<?, ?>) item).entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                entry -> String.valueOf(entry.getKey()),
+                                entry -> String.valueOf(entry.getValue()),
+                                (first, second) -> first)))
+                .toList();
     }
 }
