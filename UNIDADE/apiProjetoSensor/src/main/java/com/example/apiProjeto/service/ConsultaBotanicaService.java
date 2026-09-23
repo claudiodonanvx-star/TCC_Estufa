@@ -112,7 +112,8 @@ public class ConsultaBotanicaService {
             }
                         return textoOuFallback(gerarComOpenAi(prompt), analiseLocal);
         } catch (Exception erro) {
-            return analiseLocal + " A geração narrativa por IA está temporariamente indisponível.";
+                        return analiseLocal + " A geração narrativa por IA está temporariamente indisponível. "
+                                        + "Motivo técnico: " + erro.getMessage();
         }
     }
 
@@ -176,6 +177,10 @@ public class ConsultaBotanicaService {
                                 "parts", List.of(Map.of("text", prompt)))));
                 JsonNode resposta = objectMapper.readTree(post(endpoint,
                                 objectMapper.writeValueAsString(body), null));
+                if (resposta.has("error")) {
+                    throw new IllegalStateException(resposta.path("error").path("message")
+                            .asText("O provedor Gemini recusou a solicitação."));
+                }
                 return resposta.path("candidates").path(0).path("content").path("parts").path(0)
                         .path("text").asText("");
         }
