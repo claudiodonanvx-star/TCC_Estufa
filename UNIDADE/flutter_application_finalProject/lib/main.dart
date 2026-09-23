@@ -3,11 +3,48 @@ import 'package:flutter_application_1/Perfil/perfil_page.dart';
 import 'package:flutter_application_1/iot/TelaDados.dart';
 import 'package:flutter_application_1/cadastro/telaInicial.dart';
 import 'package:flutter_application_1/ia/chat_botanico_page.dart';
+import 'package:flutter_application_1/acessibilidade/app_accessibility.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(
-    MaterialApp(debugShowCheckedModeBanner: false, home: Telainicial()),
+    ListenableBuilder(
+      listenable: appAccessibility,
+      builder: (context, _) {
+        final highContrast = appAccessibility.highContrast;
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: highContrast
+                ? const ColorScheme.highContrastLight()
+                : ColorScheme.fromSeed(seedColor: _EcoPalette.deep),
+          ),
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            final accessibleChild = highContrast
+                ? ColorFiltered(
+                    colorFilter: const ColorFilter.matrix([
+                      1.35, 0, 0, 0, -32,
+                      0, 1.35, 0, 0, -32,
+                      0, 0, 1.35, 0, -32,
+                      0, 0, 0, 1, 0,
+                    ]),
+                    child: child ?? const SizedBox.shrink(),
+                  )
+                : child ?? const SizedBox.shrink();
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: TextScaler.linear(appAccessibility.textScale),
+                boldText: highContrast || mediaQuery.boldText,
+              ),
+              child: accessibleChild,
+            );
+          },
+          home: Telainicial(),
+        );
+      },
+    ),
   );
 }
 
@@ -152,6 +189,11 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.chat_bubble_outline_rounded,
         label: 'Assistente IA',
         builder: (_) => const ChatBotanicoPage(),
+      ),
+      _MenuEntry(
+        icon: Icons.settings_accessibility_outlined,
+        label: 'Configurações',
+        builder: (_) => const AccessibilitySettingsPage(),
       ),
     ];
   }
