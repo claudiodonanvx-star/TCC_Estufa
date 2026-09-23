@@ -15,6 +15,7 @@ public class Cliente {
     private Long id;
 
     private String nome;
+    private String usuario;
     private String telefone;
     private String email;
     private String cpf;
@@ -37,6 +38,14 @@ public class Cliente {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(String usuario) {
+        this.usuario = usuario;
     }
 
     public String getTelefone() {

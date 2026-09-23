@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.example.apiProjeto.model.Cultivo;
 import com.example.apiProjeto.model.SensorData;
@@ -25,6 +26,11 @@ public class AtuadorService {
     private Instant bombaManualAte = Instant.EPOCH;
     private Instant coolerManualAte = Instant.EPOCH;
     private Instant temperaturaManualAte = Instant.EPOCH;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public AtuadorService(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
 
     public synchronized void atualizarLeitura(Cultivo cultivo, SensorData dados) {
         if (!modoAutomatico || cultivo == null || dados == null) {
@@ -48,7 +54,9 @@ public class AtuadorService {
             coolerAutomatico = false;
             temperaturaAutomatica = false;
         }
-        return obterEstado();
+        Map<String, Object> estado = obterEstado();
+        messagingTemplate.convertAndSend("/topic/atuadores", estado);
+        return estado;
     }
 
     public synchronized Map<String, Object> acionarManual(String atuador, int duracaoSegundos) {
@@ -70,7 +78,9 @@ public class AtuadorService {
             case "temperatura" -> temperaturaManualAte = ate;
             default -> throw new IllegalArgumentException("Atuador invalido: " + atuador);
         }
-        return obterEstado();
+        Map<String, Object> estado = obterEstado();
+        messagingTemplate.convertAndSend("/topic/atuadores", estado);
+        return estado;
     }
 
     public synchronized Map<String, Object> obterEstado() {

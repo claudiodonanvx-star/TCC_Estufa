@@ -39,15 +39,26 @@ public class ClienteController {
 
     @PostMapping("/cadastro")
     public ResponseEntity<?> cadastrarCliente(@RequestBody Cliente cliente) {
-        if (clienteRepository.existsByCpf(cliente.getCpf())) {
-            return ResponseEntity.badRequest().body("❌ Cliente com esse CPF já existe.");
+        if (cliente.getNome() == null || cliente.getNome().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("campo", "nome", "mensagem", "Nome nao preenchido."));
         }
-        if (clientePendenteRepository.existsByCpfAndStatusCadastro(cliente.getCpf(), StatusCadastro.PENDENTE)) {
-            return ResponseEntity.badRequest().body("❌ Já existe um registro pendente para esse CPF.");
+        if (cliente.getUsuario() == null || cliente.getUsuario().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("campo", "usuario", "mensagem", "Nome de usuario nao preenchido."));
+        }
+        if (cliente.getSenha() == null || cliente.getSenha().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("campo", "senha", "mensagem", "Senha nao preenchida."));
+        }
+        if (usuarioRepository.findByLogin(cliente.getUsuario()).isPresent()
+                || clienteRepository.existsByUsuario(cliente.getUsuario())) {
+            return ResponseEntity.badRequest().body(Map.of("campo", "usuario", "mensagem", "Nome de usuario ja existe."));
+        }
+        if (clientePendenteRepository.existsByUsuarioAndStatusCadastro(cliente.getUsuario(), StatusCadastro.PENDENTE)) {
+            return ResponseEntity.badRequest().body(Map.of("campo", "usuario", "mensagem", "Ja existe um cadastro pendente para esse usuario."));
         }
 
         ClientePendente pendente = new ClientePendente();
         pendente.setNome(cliente.getNome());
+        pendente.setUsuario(cliente.getUsuario());
         pendente.setTelefone(cliente.getTelefone());
         pendente.setEmail(cliente.getEmail());
         pendente.setCpf(cliente.getCpf());
@@ -125,6 +136,7 @@ public class ClienteController {
 
         Cliente cliente = new Cliente();
         cliente.setNome(pendente.getNome());
+        cliente.setUsuario(pendente.getUsuario());
         cliente.setTelefone(pendente.getTelefone());
         cliente.setEmail(pendente.getEmail());
         cliente.setCpf(pendente.getCpf());
@@ -140,8 +152,8 @@ public class ClienteController {
         cliente.setAdministrador(false);
         clienteRepository.save(cliente);
 
-        if (usuarioRepository.findByLogin(pendente.getCpf()).isEmpty()) {
-            Usuario usuario = new Usuario(pendente.getCpf(), pendente.getSenha());
+        if (usuarioRepository.findByLogin(pendente.getUsuario()).isEmpty()) {
+            Usuario usuario = new Usuario(pendente.getUsuario(), pendente.getSenha());
             usuarioRepository.save(usuario);
         }
 

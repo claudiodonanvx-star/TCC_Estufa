@@ -1,6 +1,7 @@
 package com.example.apiProjeto.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 
 @Entity
 @Table (name = "usuarioestufa")
@@ -10,7 +11,10 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "O login é obrigatório")
     private String login;
+
+    @NotBlank(message = "A senha é obrigatória")
     private String senha;
 
     public Usuario() {}

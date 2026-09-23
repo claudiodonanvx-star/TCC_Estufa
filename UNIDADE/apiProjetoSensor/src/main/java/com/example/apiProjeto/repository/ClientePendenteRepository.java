@@ -11,6 +11,8 @@ import com.example.apiProjeto.model.StatusCadastro;
 public interface ClientePendenteRepository extends JpaRepository<ClientePendente, Long> {
     boolean existsByCpfAndStatusCadastro(String cpf, StatusCadastro statusCadastro);
     Optional<ClientePendente> findTopByCpfOrderByIdDesc(String cpf);
+    boolean existsByUsuarioAndStatusCadastro(String usuario, StatusCadastro statusCadastro);
+    Optional<ClientePendente> findTopByUsuarioOrderByIdDesc(String usuario);
     List<ClientePendente> findByStatusCadastroOrderByIdAsc(StatusCadastro statusCadastro);
     long countByStatusCadastro(StatusCadastro statusCadastro);
 }

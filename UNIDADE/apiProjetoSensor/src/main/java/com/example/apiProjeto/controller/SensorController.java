@@ -9,6 +9,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +32,9 @@ public class SensorController {
     @Autowired
     private AlertaService alertaService;
 
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
     @GetMapping("/ping")
     public ResponseEntity<?> ping() {
         long uptimeMs = System.currentTimeMillis() - START_TIME;
@@ -46,8 +51,9 @@ public class SensorController {
     }
 
     @PostMapping("/dados")
-    public ResponseEntity<String> receberDados(@RequestBody SensorData dados) {
+    public ResponseEntity<String> receberDados(@Valid @RequestBody SensorData dados) {
         repository.save(dados);
+        messagingTemplate.convertAndSend("/topic/sensores", dados);
         System.out.println("Dados recebidos: temp=" + dados.getTemperatura()
                 + " umid=" + dados.getUmidade()
                 + " solo=" + dados.getUmidadeSolo());

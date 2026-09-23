@@ -7,10 +7,13 @@ import com.example.apiProjeto.model.Usuario;
 import com.example.apiProjeto.repository.ClientePendenteRepository;
 import com.example.apiProjeto.repository.ClienteRepository;
 import com.example.apiProjeto.repository.UsuarioRepository;
+import com.example.apiProjeto.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -27,22 +30,34 @@ public class UsuarioController {
     @Autowired
     private ClientePendenteRepository clientePendenteRepository;
 
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final JwtService jwtService;
+
+    public UsuarioController(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
     @PostMapping("/cadastro")
-    public ResponseEntity<?> cadastrar(@RequestBody Usuario usuario) {
+    public ResponseEntity<?> cadastrar(@Valid @RequestBody Usuario usuario) {
         if (usuarioRepository.findByLogin(usuario.getLogin()).isPresent()) {
             return ResponseEntity.badRequest().body("Usuário já existe");
         }
+        usuario.setSenha(passwordEncoder.encode(usuario.getSenha()));
         return ResponseEntity.ok(usuarioRepository.save(usuario));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Usuario usuario) {
-        System.out.println("Tentando login com: " + usuario.getLogin() + " / " + usuario.getSenha());
+    public ResponseEntity<?> login(@Valid @RequestBody Usuario usuario) {
 
         Optional<Usuario> u = usuarioRepository.findByLogin(usuario.getLogin());
 
-        if (u.isPresent() && u.get().getSenha().equals(usuario.getSenha())) {
-            Optional<Cliente> clienteOpt = clienteRepository.findByCpf(usuario.getLogin());
+        if (u.isPresent() && senhaValida(usuario.getSenha(), u.get())) {
+            if (!u.get().getSenha().startsWith("$2a$") && !u.get().getSenha().startsWith("$2b$")) {
+                u.get().setSenha(passwordEncoder.encode(usuario.getSenha()));
+                usuarioRepository.save(u.get());
+            }
+                Optional<Cliente> clienteOpt = clienteRepository.findByUsuario(usuario.getLogin())
+                    .or(() -> clienteRepository.findByCpf(usuario.getLogin()));
             if (clienteOpt.isPresent()) {
                 Cliente cliente = clienteOpt.get();
                 if (!cliente.isAtivo()) {
@@ -60,7 +75,8 @@ public class UsuarioController {
                 return ResponseEntity.ok(
                         Map.of(
                                 "mensagem", "Login bem-sucedido",
-                                "cpf", cliente.getCpf(),
+                                "token", jwtService.gerarToken(usuario.getLogin()),
+                                "cpf", cliente.getCpf() == null ? usuario.getLogin() : cliente.getCpf(),
                                 "administrador", cliente.isAdministrador(),
                                 "pendenciasAprovacao", pendencias
                         )
@@ -68,8 +84,9 @@ public class UsuarioController {
             }
 
             return ResponseEntity.ok(
-                    Map.of(
+                        Map.of(
                             "mensagem", "Login bem-sucedido",
+                            "token", jwtService.gerarToken(usuario.getLogin()),
                             "cpf", usuario.getLogin(),
                             "administrador", false,
                             "pendenciasAprovacao", 0
@@ -77,7 +94,8 @@ public class UsuarioController {
             );
         }
 
-        Optional<ClientePendente> pendenteOpt = clientePendenteRepository.findTopByCpfOrderByIdDesc(usuario.getLogin());
+        Optional<ClientePendente> pendenteOpt = clientePendenteRepository.findTopByUsuarioOrderByIdDesc(usuario.getLogin())
+            .or(() -> clientePendenteRepository.findTopByCpfOrderByIdDesc(usuario.getLogin()));
         if (pendenteOpt.isPresent()) {
             ClientePendente pendente = pendenteOpt.get();
             if (pendente.getStatusCadastro() == StatusCadastro.PENDENTE) {
@@ -97,5 +115,13 @@ public class UsuarioController {
 
         System.out.println("Login falhou");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("mensagem", "Login inválido"));
+    }
+
+    private boolean senhaValida(String senhaInformada, Usuario usuario) {
+        String senhaArmazenada = usuario.getSenha();
+        return senhaArmazenada != null
+                && (senhaArmazenada.startsWith("$2a$") || senhaArmazenada.startsWith("$2b$")
+                    ? passwordEncoder.matches(senhaInformada, senhaArmazenada)
+                    : senhaArmazenada.equals(senhaInformada));
     }
 }

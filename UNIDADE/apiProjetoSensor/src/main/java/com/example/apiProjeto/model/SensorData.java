@@ -1,6 +1,8 @@
 package com.example.apiProjeto.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,8 +13,16 @@ public class SensorData {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @DecimalMin(value = "-50.0", message = "A temperatura deve ser maior ou igual a -50 °C")
+    @DecimalMax(value = "80.0", message = "A temperatura deve ser menor ou igual a 80 °C")
     private float temperatura;
+
+    @DecimalMin(value = "0.0", message = "A umidade deve ser maior ou igual a 0%")
+    @DecimalMax(value = "100.0", message = "A umidade deve ser menor ou igual a 100%")
     private float umidade;
+
+    @DecimalMin(value = "0.0", message = "A umidade do solo deve ser maior ou igual a 0%")
+    @DecimalMax(value = "100.0", message = "A umidade do solo deve ser menor ou igual a 100%")
     private Float umidadeSolo;
     private String significado;
 
