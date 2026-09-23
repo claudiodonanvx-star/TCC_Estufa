@@ -108,13 +108,19 @@ public class ConsultaBotanicaService {
                     + ". Temperatura atual: " + temperatura + ". Análise local: " + analiseLocal
                     + ". Fontes: " + contexto + ". Histórico da conversa: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                return gerarComGemini(prompt);
+                                return textoOuFallback(gerarComGemini(prompt), analiseLocal);
             }
-            return gerarComOpenAi(prompt);
+                        return textoOuFallback(gerarComOpenAi(prompt), analiseLocal);
         } catch (Exception erro) {
             return analiseLocal + " A geração narrativa por IA está temporariamente indisponível.";
         }
     }
+
+        private String textoOuFallback(String texto, String fallback) {
+                return texto == null || texto.isBlank()
+                                ? fallback + " O agente não recebeu texto do provedor de IA nesta tentativa."
+                                : texto;
+        }
 
         private String gerarAnaliseLocal(String planta, String pergunta, Double umidadeAtual,
                                                                          Double temperaturaAtual) {
@@ -171,7 +177,7 @@ public class ConsultaBotanicaService {
                 JsonNode resposta = objectMapper.readTree(post(endpoint,
                                 objectMapper.writeValueAsString(body), null));
                 return resposta.path("candidates").path(0).path("content").path("parts").path(0)
-                                .path("text").asText();
+                        .path("text").asText("");
         }
 
         private String gerarComOpenAi(String prompt) throws Exception {
@@ -180,7 +186,7 @@ public class ConsultaBotanicaService {
                                 "messages", List.of(Map.of("role", "user", "content", prompt)));
                 JsonNode resposta = objectMapper.readTree(post(endpoint,
                                 objectMapper.writeValueAsString(body), "Bearer " + aiApiKey));
-                return resposta.path("choices").path(0).path("message").path("content").asText();
+                return resposta.path("choices").path(0).path("message").path("content").asText("");
         }
 
     private String get(String url) throws Exception {
