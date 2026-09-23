@@ -1,5 +1,6 @@
 class Cliente {
   String nome;
+  String usuario;
   String telefone;
   String email;
   String cpf;
@@ -17,6 +18,7 @@ class Cliente {
 
   Cliente({
     required this.nome,
+    this.usuario = '',
     required this.telefone,
     required this.email,
     required this.cpf,
@@ -36,6 +38,7 @@ class Cliente {
   factory Cliente.fromJson(Map<String, dynamic> json) {
     return Cliente(
       nome: json['nome'] ?? '',
+      usuario: json['usuario'] ?? json['login'] ?? '',
       telefone: json['telefone'] ?? '',
       email: json['email'] ?? '',
       cpf: json['cpf'] ?? '',
@@ -55,6 +58,7 @@ class Cliente {
   Map<String, dynamic> toJson() {
     return {
       "nome": nome,
+      "usuario": usuario,
       "telefone": telefone,
       "email": email,
       "cpf": cpf,
@@ -68,6 +72,14 @@ class Cliente {
       "numero": numero,
       "complemento": complemento,
       "administrador": administrador,
+    };
+  }
+
+  Map<String, dynamic> toJsonCadastro() {
+    return {
+      "nome": nome,
+      "usuario": usuario,
+      "senha": senha,
     };
   }
 

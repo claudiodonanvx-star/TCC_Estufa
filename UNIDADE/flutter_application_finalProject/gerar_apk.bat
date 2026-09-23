@@ -13,8 +13,11 @@ if exist "%ANDROID_SDK_ROOT%" (
   )
 )
 
-where flutter >nul 2>nul
-if errorlevel 1 (
+set "FLUTTER_CMD=C:\flutter\bin\flutter.bat"
+if not exist "%FLUTTER_CMD%" set "FLUTTER_CMD=flutter"
+
+if "%FLUTTER_CMD%"=="flutter" where flutter >nul 2>nul
+if "%FLUTTER_CMD%"=="flutter" if errorlevel 1 (
   echo Flutter nao encontrado no PATH.
   echo Instale o Flutter e adicione ao PATH antes de continuar.
   pause
@@ -22,13 +25,13 @@ if errorlevel 1 (
 )
 
 echo Baixando dependencias...
-flutter pub get
+"%FLUTTER_CMD%" pub get
 
 echo Aplicando icone do app...
-flutter pub run flutter_launcher_icons:main
+"%FLUTTER_CMD%" pub run flutter_launcher_icons:main
 
 echo Gerando APK de release...
-flutter build apk --release
+"%FLUTTER_CMD%" build apk --release
 
 if exist "build\app\outputs\flutter-apk\app-release.apk" (
   echo.

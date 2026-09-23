@@ -346,6 +346,18 @@ async function carregarDadosIniciais() {
 
     atualizarGraficoHistorico(historico);
 
+    try {
+      const analise = await EstufaAPI.obterInsights(30);
+      const lista = document.getElementById('recommendations-list');
+      if (lista && Array.isArray(analise.insights)) {
+        lista.innerHTML = analise.insights.map(insight =>
+          `<div class="recommendation-item"><strong>IA:</strong> ${insight}</div>`
+        ).join('');
+      }
+    } catch (e) {
+      console.warn('Insights da API indisponíveis; mantendo recomendações locais.');
+    }
+
   } catch (erro) {
     console.error('Erro ao carregar dados iniciais:', erro);
   }

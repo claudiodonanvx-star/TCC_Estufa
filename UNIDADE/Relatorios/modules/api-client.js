@@ -119,6 +119,11 @@ window.EstufaAPI = {
     return this.requisicao('/previsoes');
   },
 
+  // GET /insights - Insights explicáveis calculados sobre o histórico recente
+  async obterInsights(limite = 30) {
+    return this.requisicao(`/insights?limite=${limite}`);
+  },
+
   // Mock data para desenvolvimento
   obterMockDados() {
     return {

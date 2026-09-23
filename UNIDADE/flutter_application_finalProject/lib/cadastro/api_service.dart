@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_application_1/cadastro/cliente.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class LoginResultado {
   final bool sucesso;
@@ -19,6 +21,8 @@ class LoginResultado {
 }
 
 class ApiService {
+  static const _secureStorage = FlutterSecureStorage();
+
   static String _normalizarBaseUrl(String ip) {
     var base = ip.trim();
     if (!base.startsWith('http://') && !base.startsWith('https://')) {
@@ -76,6 +80,10 @@ class ApiService {
       }
 
       if (response.statusCode == 200) {
+        final token = payload['token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          await _secureStorage.write(key: 'estufa_jwt', value: token);
+        }
         return LoginResultado(
           sucesso: true,
           mensagem: payload['mensagem']?.toString() ?? 'Login bem-sucedido',
@@ -102,14 +110,16 @@ class ApiService {
   final url = Uri.parse('$baseUrl/api/clientes/cadastro');
 
   try {
+  final token = await _secureStorage.read(key: 'estufa_jwt');
     final response = await http.post(
       url,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'ngrok-skip-browser-warning': 'true',
+        if (token != null) 'Authorization': 'Bearer $token',
       },
-      body: jsonEncode(cliente.toJson()),
+      body: jsonEncode(cliente.toJsonCadastro()),
     );
 
     if (response.statusCode == 200) {
@@ -123,5 +133,15 @@ class ApiService {
     return null;
   }
 }
+
+  static Future<void> encerrarSessao() async {
+    await _secureStorage.delete(key: 'estufa_jwt');
+  }
+
+  static Future<WebSocketChannel> conectarSincronizacao(String ip) async {
+    final baseUrl = _normalizarBaseUrl(ip);
+    final uri = Uri.parse('${baseUrl.replaceFirst(RegExp(r'^http'), 'ws')}/ws/sincronizacao');
+    return WebSocketChannel.connect(uri);
+  }
 
 }

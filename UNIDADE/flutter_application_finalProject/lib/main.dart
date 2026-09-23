@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/Perfil/perfil_page.dart';
 import 'package:flutter_application_1/iot/TelaDados.dart';
 import 'package:flutter_application_1/cadastro/telaInicial.dart';
+import 'package:flutter_application_1/ia/chat_botanico_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -146,6 +147,11 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.computer_outlined,
         label: 'MSW',
         builder: (_) => const MonitorSerialWebPage(),
+      ),
+      _MenuEntry(
+        icon: Icons.chat_bubble_outline_rounded,
+        label: 'Assistente IA',
+        builder: (_) => const ChatBotanicoPage(),
       ),
     ];
   }

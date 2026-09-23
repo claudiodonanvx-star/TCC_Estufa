@@ -2001,27 +2001,15 @@ class _CadastroClientesState extends State<CadastroClientes>
   final List<Cliente> _clientes = [];
 
   final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _telefoneController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _cpfController = TextEditingController();
+  final TextEditingController _usuarioController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _cepController = TextEditingController();
-  final TextEditingController _cidadeController = TextEditingController();
-  final TextEditingController _bairroController = TextEditingController();
-  final TextEditingController _numeroController = TextEditingController();
-  final TextEditingController _complementoController = TextEditingController();
 
   bool? conexaoOk;
   String? ipExterno;
-  String _sexo = 'Masculino';
-  bool _ativo = false;
-  bool _aceitouTermos = false;
   bool _obscureSenha = true;
 
   late final AnimationController _controller;
   late final Animation<double> _sectionOne;
-  late final Animation<double> _sectionTwo;
-  late final Animation<double> _sectionThree;
 
   @override
   void initState() {
@@ -2036,18 +2024,6 @@ class _CadastroClientesState extends State<CadastroClientes>
         curve: const Interval(0, 0.50, curve: Curves.easeOutCubic),
       ),
     );
-    _sectionTwo = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.24, 0.76, curve: Curves.easeOutCubic),
-      ),
-    );
-    _sectionThree = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.48, 1, curve: Curves.easeOutCubic),
-      ),
-    );
     _controller.forward();
     carregarIpETestar();
   }
@@ -2056,15 +2032,8 @@ class _CadastroClientesState extends State<CadastroClientes>
   void dispose() {
     _controller.dispose();
     _nomeController.dispose();
-    _telefoneController.dispose();
-    _emailController.dispose();
-    _cpfController.dispose();
+    _usuarioController.dispose();
     _senhaController.dispose();
-    _cepController.dispose();
-    _cidadeController.dispose();
-    _bairroController.dispose();
-    _numeroController.dispose();
-    _complementoController.dispose();
     super.dispose();
   }
 
@@ -2092,20 +2061,10 @@ class _CadastroClientesState extends State<CadastroClientes>
   void _limparCampos() {
     _formKey.currentState?.reset();
     _nomeController.clear();
-    _telefoneController.clear();
-    _emailController.clear();
-    _cpfController.clear();
+    _usuarioController.clear();
     _senhaController.clear();
-    _cepController.clear();
-    _cidadeController.clear();
-    _bairroController.clear();
-    _numeroController.clear();
-    _complementoController.clear();
 
     setState(() {
-      _sexo = 'Masculino';
-      _ativo = false;
-      _aceitouTermos = false;
       _obscureSenha = true;
     });
   }
@@ -2148,28 +2107,12 @@ class _CadastroClientesState extends State<CadastroClientes>
                             ),
                             const SizedBox(height: 4),
                             Text('Nome: ${cliente.nome}'),
-                            Text('Telefone: ${cliente.telefone}'),
-                            Text('Email: ${cliente.email}'),
-                            Text('CPF: ${cliente.cpf}'),
-                            Text('Sexo: ${cliente.sexo}'),
-                            const Divider(),
-                            const Text(
-                              'Endereco',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text('CEP: ${cliente.cep}'),
-                            Text('Cidade: ${cliente.cidade}'),
-                            Text('Bairro: ${cliente.bairro}'),
-                            Text('Numero: ${cliente.numero}'),
-                            if (cliente.complemento.isNotEmpty)
-                              Text('Complemento: ${cliente.complemento}'),
+                            Text('Usuario: ${cliente.usuario}'),
                             const Divider(),
                             const Text(
                               'Status',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            Text('Ativo: ${cliente.ativo ? 'Sim' : 'Nao'}'),
                           ],
                         ),
                       );
@@ -2191,27 +2134,6 @@ class _CadastroClientesState extends State<CadastroClientes>
       return;
     }
 
-    if (!_aceitouTermos) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
-              title: const Text('Atencao'),
-              content: const Text('Voce deve aceitar os termos.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Entendi'),
-                ),
-              ],
-            ),
-      );
-      return;
-    }
-
     if (conexaoOk != true || ipExterno == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2224,18 +2146,10 @@ class _CadastroClientesState extends State<CadastroClientes>
 
     final novo = Cliente(
       nome: _nomeController.text.trim(),
-      telefone: _telefoneController.text.replaceAll(RegExp(r'\D'), ''),
-      email: _emailController.text.trim(),
-      cpf: _cpfController.text.replaceAll(RegExp(r'\D'), ''),
-      sexo: _sexo,
+      usuario: _usuarioController.text.trim(),
       senha: _senhaController.text,
-      cep: _cepController.text.replaceAll(RegExp(r'\D'), ''),
-      cidade: _cidadeController.text.trim(),
-      bairro: _bairroController.text.trim(),
-      numero: _numeroController.text.trim(),
-      complemento: _complementoController.text.trim(),
-      ativo: _ativo,
-      aceitouTermos: _aceitouTermos,
+      telefone: '', email: '', cpf: '', sexo: '', cep: '', cidade: '',
+      bairro: '', numero: '', complemento: '', ativo: false, aceitouTermos: false,
     );
 
     final resultado = await ApiService.cadastrarCliente(ipExterno!, novo);
@@ -2293,73 +2207,11 @@ class _CadastroClientesState extends State<CadastroClientes>
     );
   }
 
-  void _formatTelefone(String value) {
-    var digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 11) {
-      digits = digits.substring(0, 11);
+  String? _validarObrigatorio(String? value, String campo) {
+    if (value == null || value.trim().isEmpty) {
+      return '$campo nao preenchido';
     }
-
-    var formatted = digits;
-    if (digits.length >= 2) {
-      formatted = '${digits.substring(0, 2)} ';
-      if (digits.length >= 7) {
-        formatted += '${digits.substring(2, 7)}-${digits.substring(7)}';
-      } else if (digits.length > 2) {
-        formatted += digits.substring(2);
-      }
-    }
-
-    _telefoneController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-
-  void _formatCpf(String value) {
-    var digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 11) {
-      digits = digits.substring(0, 11);
-    }
-
-    var formatted = digits;
-    if (digits.length >= 3) {
-      formatted = digits.substring(0, 3);
-      if (digits.length >= 6) {
-        formatted += '.${digits.substring(3, 6)}';
-        if (digits.length >= 9) {
-          formatted += '.${digits.substring(6, 9)}';
-          if (digits.length >= 10) {
-            formatted += '-${digits.substring(9)}';
-          }
-        } else if (digits.length > 6) {
-          formatted += '.${digits.substring(6)}';
-        }
-      } else if (digits.length > 3) {
-        formatted += '.${digits.substring(3)}';
-      }
-    }
-
-    _cpfController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-
-  void _formatCep(String value) {
-    var digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 8) {
-      digits = digits.substring(0, 8);
-    }
-
-    var formatted = digits;
-    if (digits.length > 5) {
-      formatted = '${digits.substring(0, 5)}-${digits.substring(5)}';
-    }
-
-    _cepController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
+    return null;
   }
 
   @override
@@ -2384,7 +2236,7 @@ class _CadastroClientesState extends State<CadastroClientes>
                 _animatedSection(
                   _sectionOne,
                   _SectionCard(
-                    title: 'Informacoes Pessoais',
+                    title: 'Dados de acesso',
                     icon: Icons.person_outline_rounded,
                     child: Column(
                       children: [
@@ -2392,70 +2244,20 @@ class _CadastroClientesState extends State<CadastroClientes>
                           controller: _nomeController,
                           textInputAction: TextInputAction.next,
                           decoration: _ecoInput('Nome', Icons.person_outline),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Nome e obrigatorio'
-                                      : null,
+                          validator: (value) => _validarObrigatorio(value, 'Nome'),
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
-                          controller: _telefoneController,
+                          controller: _usuarioController,
                           textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.number,
-                          onChanged: _formatTelefone,
-                          decoration: _ecoInput(
-                            'Telefone (00 00000-0000)',
-                            Icons.phone_outlined,
-                          ),
-                          validator:
-                              (value) =>
-                                  RegExp(
-                                        r'^\d{2} \d{5}-\d{4}$',
-                                      ).hasMatch(value ?? '')
-                                      ? null
-                                      : 'Telefone invalido',
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _emailController,
-                          textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: _ecoInput('Email', Icons.email_outlined),
-                          validator: (value) {
-                            const regex = r'^[\w\.-]+@[\w\.-]+\.[A-Za-z]{2,}$';
-                            if (value == null || value.isEmpty) {
-                              return 'Email e obrigatorio';
-                            }
-                            if (!RegExp(regex).hasMatch(value)) {
-                              return 'Email invalido';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _cpfController,
-                          textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.number,
-                          onChanged: _formatCpf,
-                          decoration: _ecoInput(
-                            'CPF (000.000.000-00)',
-                            Icons.badge_outlined,
-                          ),
-                          validator:
-                              (value) =>
-                                  RegExp(
-                                        r'^\d{3}\.\d{3}\.\d{3}-\d{2}$',
-                                      ).hasMatch(value ?? '')
-                                      ? null
-                                      : 'CPF invalido',
+                          decoration: _ecoInput('Nome de usuario (login)', Icons.account_circle_outlined),
+                          validator: (value) => _validarObrigatorio(value, 'Nome de usuario'),
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _senhaController,
                           obscureText: _obscureSenha,
-                          textInputAction: TextInputAction.next,
+                          textInputAction: TextInputAction.done,
                           decoration: _ecoInput(
                             'Senha',
                             Icons.lock_outline_rounded,
@@ -2475,7 +2277,7 @@ class _CadastroClientesState extends State<CadastroClientes>
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Senha e obrigatoria';
+                              return 'Senha nao preenchida';
                             }
                             if (value.length < 3) {
                               return 'Senha deve ter no minimo 3 caracteres';
@@ -2483,148 +2285,16 @@ class _CadastroClientesState extends State<CadastroClientes>
                             return null;
                           },
                         ),
-                        const SizedBox(height: 14),
-                        DropdownButtonFormField<String>(
-                          initialValue: _sexo,
-                          dropdownColor: Colors.white,
-                          decoration: _ecoInput('Sexo', Icons.wc_outlined),
-                          items:
-                              const ['Masculino', 'Feminino', 'Outro']
-                                  .map(
-                                    (sexo) => DropdownMenuItem<String>(
-                                      value: sexo,
-                                      child: Text(sexo),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _sexo = value;
-                              });
-                            }
-                          },
-                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                _animatedSection(
-                  _sectionTwo,
-                  _SectionCard(
-                    title: 'Endereco',
-                    icon: Icons.location_on_outlined,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _cepController,
-                          textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.number,
-                          onChanged: _formatCep,
-                          decoration: _ecoInput(
-                            'CEP (00000-000)',
-                            Icons.map_outlined,
-                          ),
-                          validator:
-                              (value) =>
-                                  RegExp(r'^\d{5}-\d{3}$').hasMatch(value ?? '')
-                                      ? null
-                                      : 'CEP invalido',
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _cidadeController,
-                          textInputAction: TextInputAction.next,
-                          decoration: _ecoInput(
-                            'Cidade (ex: Limeira - SP)',
-                            Icons.location_city_outlined,
-                          ),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Cidade e obrigatoria'
-                                      : null,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _bairroController,
-                          textInputAction: TextInputAction.next,
-                          decoration: _ecoInput(
-                            'Bairro',
-                            Icons.home_work_outlined,
-                          ),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Bairro e obrigatorio'
-                                      : null,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _numeroController,
-                          textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.number,
-                          decoration: _ecoInput(
-                            'Numero da casa',
-                            Icons.format_list_numbered_rounded,
-                          ),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Numero e obrigatorio'
-                                      : null,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _complementoController,
-                          textInputAction: TextInputAction.done,
-                          decoration: _ecoInput(
-                            'Complemento',
-                            Icons.edit_outlined,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _animatedSection(
-                  _sectionThree,
-                  _SectionCard(
-                    title: 'Confirmacao',
-                    icon: Icons.check_circle_outline_rounded,
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          activeThumbColor: _P.deep,
-                          title: const Text(
-                            'Conta ativa',
-                            style: TextStyle(color: _P.text),
-                          ),
-                          value: _ativo,
-                          onChanged: (value) {
-                            setState(() {
-                              _ativo = value;
-                            });
-                          },
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          activeColor: _P.deep,
-                          title: const Text(
-                            'Aceito os termos de uso',
-                            style: TextStyle(color: _P.text),
-                          ),
-                          value: _aceitouTermos,
-                          onChanged: (value) {
-                            setState(() {
-                              _aceitouTermos = value ?? false;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                _SectionCard(
+                  title: 'Confirmacao',
+                  icon: Icons.check_circle_outline_rounded,
+                  child: Column(
+                    children: [
                         Row(
                           children: [
                             Expanded(
@@ -2656,8 +2326,7 @@ class _CadastroClientesState extends State<CadastroClientes>
                             onTap: _mostrarClientes,
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ],

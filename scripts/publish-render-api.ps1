@@ -19,12 +19,25 @@ if (-not (Test-Path $apiDir)) {
     throw "API directory not found: $apiDir"
 }
 
+$jdk21 = 'C:\Program Files\Java\jdk-21'
+if (Test-Path (Join-Path $jdk21 'bin\java.exe')) {
+    $env:JAVA_HOME = $jdk21
+    $env:Path = "$jdk21\bin;$env:Path"
+} elseif (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME 'bin\javac.exe'))) {
+    throw "JDK 21 nao encontrado. Instale o JDK 21 ou defina JAVA_HOME para ele."
+}
+
+Write-Host "==> Java usado: $env:JAVA_HOME"
+
 Push-Location $apiDir
 try {
     Write-Host "==> Building Spring Boot jar..."
     .\gradlew.bat bootJar --no-daemon -x test
+    if ($LASTEXITCODE -ne 0) {
+        throw "Gradle falhou ao gerar o JAR (codigo $LASTEXITCODE). O push nao sera executado."
+    }
 
-    $builtJar = Get-ChildItem -Path (Join-Path $apiDir "build\libs\*.jar") |
+    $builtJar = Get-ChildItem -Path (Join-Path $apiDir "build\libs\*.jar") -ErrorAction Stop |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
 
@@ -43,7 +56,7 @@ finally {
 }
 
 Write-Host "==> Staging files for commit..."
-git -C $repoRoot add "UNIDADE/apiProjetoSensor/render/app.jar" "UNIDADE/apiProjetoSensor/Dockerfile"
+git -C $repoRoot add "UNIDADE/apiProjetoSensor/render/app.jar" "UNIDADE/apiProjetoSensor/Dockerfile" "UNIDADE/apiProjetoSensor/build.gradle" "UNIDADE/apiProjetoSensor/src/main/java" "UNIDADE/apiProjetoSensor/src/main/resources/application.properties" "UNIDADE/sql/10_add_usuario_cadastro.sql"
 
 $status = git -C $repoRoot status --short
 if (-not $status) {

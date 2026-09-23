@@ -39,6 +39,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -224,10 +225,8 @@ public class MainDashboardView extends BorderPane {
         cards.getStyleClass().add("overview-card-grid");
         cards.add(card("Temp média", kpiTemp), 0, 0);
         cards.add(card("Umidade média", kpiUmidade), 1, 0);
-        cards.add(card("Umidade solo", kpiSolo), 2, 0);
-        cards.add(card("Tempo ideal", kpiIdeal), 0, 1);
-        cards.add(card("Alertas", kpiAlerta), 1, 1);
-        cards.add(card("Índice saúde", kpiSaude), 2, 1);
+        cards.add(card("Umidade do solo", kpiSolo), 2, 0);
+        cards.add(card("Alertas", kpiAlerta), 3, 0);
 
         SplitPane split = new SplitPane();
         split.setDividerPositions(0.62);
@@ -240,9 +239,15 @@ public class MainDashboardView extends BorderPane {
         overviewPieChart.setLabelsVisible(true);
         overviewPieChart.setClockwise(true);
 
-        VBox left = new VBox(14, wrapChart(overviewLineChart), wrapChart(overviewBarChart));
+        VBox left = new VBox(14, wrapChart(overviewLineChart));
         left.setPadding(new Insets(4));
-        VBox right = new VBox(14, wrapChart(overviewPieChart));
+        HBox secondaryCharts = new HBox(14, wrapChart(overviewBarChart), wrapChart(overviewPieChart));
+        HBox.setHgrow(overviewBarChart, Priority.ALWAYS);
+        HBox.setHgrow(overviewPieChart, Priority.ALWAYS);
+        TitledPane details = new TitledPane("Detalhes de alertas e faixa ideal", secondaryCharts);
+        details.setExpanded(false);
+        details.setAnimated(false);
+        VBox right = new VBox(14, details);
         right.setPadding(new Insets(4));
 
         VBox.setVgrow(overviewLineChart, Priority.ALWAYS);
