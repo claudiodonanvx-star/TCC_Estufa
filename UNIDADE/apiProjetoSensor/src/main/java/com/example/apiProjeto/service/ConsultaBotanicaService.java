@@ -33,7 +33,7 @@ public class ConsultaBotanicaService {
     public ConsultaBotanicaService(ObjectMapper objectMapper,
                                    @Value("${app.ai.api-key:}") String aiApiKey,
                                    @Value("${app.ai.endpoint:}") String aiEndpoint,
-                                   @Value("${app.ai.model:gemini-2.0-flash}") String aiModel,
+                                   @Value("${app.ai.model:gemini-2.5-flash}") String aiModel,
                                    @Value("${app.ai.provider:gemini}") String aiProvider) {
         this.objectMapper = objectMapper;
         this.aiApiKey = aiApiKey;
