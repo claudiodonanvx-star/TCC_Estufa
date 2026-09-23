@@ -56,9 +56,12 @@ public class ConsultaBotanicaService {
         resposta.put("fontes", fontes);
 
         if (!aiApiKey.isBlank()) {
-            String relatorio = gerarRelatorioComIA(planta, pergunta, umidadeAtual,
+            ResultadoIA resultadoIA = gerarRelatorioComIA(planta, pergunta, umidadeAtual,
                     temperaturaAtual, fontes, analiseLocal, historico);
-            resposta.put("relatorio", relatorio);
+            if (!resultadoIA.fontes().isEmpty()) {
+                fontes = resultadoIA.fontes();
+            }
+            resposta.put("relatorio", resultadoIA.texto());
             resposta.put("tipo", "agente agrícola com IA e consulta de fontes");
         } else {
             resposta.put("relatorio", analiseLocal
@@ -91,7 +94,7 @@ public class ConsultaBotanicaService {
         return fontes;
     }
 
-    private String gerarRelatorioComIA(String planta, String pergunta, Double umidade,
+        private ResultadoIA gerarRelatorioComIA(String planta, String pergunta, Double umidade,
                                        Double temperatura, List<Map<String, String>> fontes,
                                        String analiseLocal, List<Map<String, String>> historico) {
         try {
@@ -108,14 +111,16 @@ public class ConsultaBotanicaService {
                     + ". Temperatura atual: " + temperatura + ". Análise local: " + analiseLocal
                     + ". Fontes: " + contexto + ". Histórico da conversa: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                                return textoOuFallback(gerarComGemini(prompt), analiseLocal);
+                                return gerarComGemini(prompt, analiseLocal);
             }
-                        return textoOuFallback(gerarComOpenAi(prompt), analiseLocal);
+                        return new ResultadoIA(textoOuFallback(gerarComOpenAi(prompt), analiseLocal), List.of());
         } catch (Exception erro) {
-                        return analiseLocal + " A geração narrativa por IA está temporariamente indisponível. "
-                                        + "Motivo técnico: " + erro.getMessage();
+                        return new ResultadoIA(analiseLocal + " A geração narrativa por IA está temporariamente indisponível. "
+                                        + "Motivo técnico: " + erro.getMessage(), List.of());
         }
     }
+
+        private record ResultadoIA(String texto, List<Map<String, String>> fontes) {}
 
         private String textoOuFallback(String texto, String fallback) {
                 return texto == null || texto.isBlank()
@@ -167,22 +172,35 @@ public class ConsultaBotanicaService {
                 return "cuidados gerais da planta";
         }
 
-        private String gerarComGemini(String prompt) throws Exception {
+        private ResultadoIA gerarComGemini(String prompt, String fallback) throws Exception {
                 String endpoint = aiEndpoint.isBlank()
                                 ? "https://generativelanguage.googleapis.com/v1beta/models/"
                                         + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
                                 : aiEndpoint;
-                Map<String, Object> body = Map.of("contents", List.of(Map.of(
+                Map<String, Object> body = Map.of(
+                        "tools", List.of(Map.of("google_search", Map.of())),
+                        "contents", List.of(Map.of(
                                 "role", "user",
-                                "parts", List.of(Map.of("text", prompt)))));
+                        "parts", List.of(Map.of("text", prompt)))));
                 JsonNode resposta = objectMapper.readTree(post(endpoint,
                                 objectMapper.writeValueAsString(body), null));
                 if (resposta.has("error")) {
                     throw new IllegalStateException(resposta.path("error").path("message")
                             .asText("O provedor Gemini recusou a solicitação."));
                 }
-                return resposta.path("candidates").path(0).path("content").path("parts").path(0)
+                String texto = resposta.path("candidates").path(0).path("content").path("parts").path(0)
                         .path("text").asText("");
+                List<Map<String, String>> fontes = new ArrayList<>();
+                for (JsonNode chunk : resposta.path("candidates").path(0).path("groundingMetadata")
+                        .path("groundingChunks")) {
+                    JsonNode web = chunk.path("web");
+                    String uri = web.path("uri").asText("");
+                    String titulo = web.path("title").asText(uri);
+                    if (!uri.isBlank()) {
+                        fontes.add(Map.of("titulo", titulo, "url", uri, "resumo", "Fonte usada pelo Google Gemini"));
+                    }
+                }
+                return new ResultadoIA(textoOuFallback(texto, fallback), fontes);
         }
 
         private String gerarComOpenAi(String prompt) throws Exception {
