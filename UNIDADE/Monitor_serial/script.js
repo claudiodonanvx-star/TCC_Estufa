@@ -9,6 +9,7 @@ let conectado = false;
 let ultimoDadoId = null;
 let ultimoAlertaId = null;
 let ultimoEstadoAtuadores = null;
+const falhasAtivas = new Set();
 
 
 // =========================================================
@@ -284,14 +285,43 @@ async function verificarDados() {
         const resposta =
             await fetch(apiBase + "/api/dados?page=0&size=1&ordem=desc");
 
+        if (!resposta.ok) {
+            throw new Error(`consulta de dados falhou (HTTP ${resposta.status})`);
+        }
+
         const lista =
             await resposta.json();
 
         if (!Array.isArray(lista) || lista.length === 0) {
+            registrarFalhaUnica("sem-leitura", "A unidade ainda não enviou leituras para a API");
             return;
         }
 
         const ultimo = lista[0];
+
+        const dataLeitura = ultimo.coletadoEm ?? ultimo.timestamp;
+        const idadeLeitura = dataLeitura
+            ? Date.now() - new Date(dataLeitura).getTime()
+            : Number.NaN;
+
+        if (Number.isFinite(idadeLeitura) && idadeLeitura > 45000) {
+            registrarFalhaUnica(
+                "leitura-atrasada",
+                `A unidade não envia uma leitura há ${Math.floor(idadeLeitura / 1000)} s`
+            );
+        } else {
+            limparFalhaAtiva("leitura-atrasada");
+        }
+
+        if (
+            ultimo.temperatura < -40 || ultimo.temperatura > 80 ||
+            ultimo.umidade < 0 || ultimo.umidade > 100
+        ) {
+            marcarSensorComoFalha(tempStatus);
+            registrarFalhaUnica("leitura-invalida", "Leitura inválida do sensor de temperatura/umidade");
+        } else {
+            limparFalhaAtiva("leitura-invalida");
+        }
 
         if (ultimo.id === ultimoDadoId) {
             return;
@@ -323,6 +353,9 @@ async function verificarDados() {
     catch (error) {
 
         console.error(error);
+        warning.textContent = "⚠️ Não foi possível obter as leituras da unidade. A API pode estar retornando erro.";
+        warning.style.display = "block";
+        registrarFalhaUnica("consulta-dados", `Falha ao consultar leituras: ${error.message}`);
 
     }
 }
@@ -487,6 +520,22 @@ function registrarFalha(mensagem) {
 
     falhasLog.appendChild(item);
     falhasLog.scrollTop = falhasLog.scrollHeight;
+}
+
+
+function registrarFalhaUnica(chave, mensagem) {
+
+    if (falhasAtivas.has(chave)) {
+        return;
+    }
+
+    falhasAtivas.add(chave);
+    registrarFalha(mensagem);
+}
+
+
+function limparFalhaAtiva(chave) {
+    falhasAtivas.delete(chave);
 }
 
 

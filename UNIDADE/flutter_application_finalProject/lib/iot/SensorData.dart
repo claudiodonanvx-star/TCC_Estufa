@@ -17,7 +17,7 @@ class SensorData {
     return SensorData(
       temperatura: json['temperatura']?.toDouble() ?? 0.0,
       umidade: json['umidade']?.toDouble() ?? 0.0,
-      umidadeSolo: json['umidadeSolo']?.toDouble() ?? 0.0,
+      umidadeSolo: json['umidadeSolo']?.toDouble(),
       dataHora: json['dataHora']?.toString(),
       significado: json['significado']?.toString(), // ← novo campo
     );

@@ -30,6 +30,8 @@ class _TelaDadosState extends State<TelaDados> {
   bool _bombaLigada = false;
   bool _coolerLigado = false;
   bool _temperaturaLigada = false;
+  bool _simulacaoAtiva = false;
+  int _passoSimulacao = 0;
 
   Cultivo? _cultivoAtual;
   List<Cultivo> _cultivosDisponiveis = [];
@@ -71,10 +73,150 @@ class _TelaDadosState extends State<TelaDados> {
       });
 
       if (_contador == 0) {
-        _buscarDados();
+        if (_simulacaoAtiva) {
+          _atualizarDadosSimulados();
+        } else {
+          _buscarDados();
+        }
         _contador = 20;
       }
     });
+  }
+
+  Future<void> _alternarSimulacao() async {
+    if (!widget.administrador) return;
+
+    setState(() {
+      _simulacaoAtiva = !_simulacaoAtiva;
+      _passoSimulacao = 0;
+      if (_simulacaoAtiva) {
+        _popularDadosSimulados();
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _simulacaoAtiva
+              ? 'Simulação ativada. Os dados exibidos são fictícios.'
+              : 'Simulação desativada. Voltando aos dados da unidade.',
+        ),
+      ),
+    );
+
+    if (_simulacaoAtiva) {
+      await _enviarDadosSimulados();
+    } else {
+      _contador = 1;
+      _buscarDados();
+    }
+  }
+
+  void _popularDadosSimulados() {
+    final variacao = (_passoSimulacao % 6) - 2;
+    final temperatura = 24.0 + variacao * 0.8;
+    final umidade = 58.0 - variacao * 1.5;
+    final umidadeSolo = 52.0 + variacao * 2.5;
+
+    _dados = [
+      SensorData(
+        temperatura: temperatura,
+        umidade: umidade,
+        umidadeSolo: umidadeSolo,
+        dataHora: DateTime.now().toIso8601String(),
+        significado: 'Simulação administrativa',
+      ),
+    ];
+    _carregando = false;
+    _erro = null;
+  }
+
+  Future<void> _atualizarDadosSimulados() async {
+    setState(() {
+      _passoSimulacao++;
+      _popularDadosSimulados();
+    });
+    await _enviarDadosSimulados();
+  }
+
+  Future<void> _enviarDadosSimulados() async {
+    if (!_simulacaoAtiva || _dados.isEmpty) return;
+
+    if (ipAtual.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível cadastrar: API ainda não conectada.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final resposta = await enviarLeituraValidacao(ipAtual, _dados.last);
+      if (!mounted || !_simulacaoAtiva) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Leitura simulada cadastrada no banco.')),
+      );
+
+      final significado = resposta['significado']?.toString();
+      if (significado != null && significado.isNotEmpty) {
+        setState(() {
+          final leitura = _dados.last;
+          _dados = [
+            SensorData(
+              temperatura: leitura.temperatura,
+              umidade: leitura.umidade,
+              umidadeSolo: leitura.umidadeSolo,
+              dataHora: leitura.dataHora,
+              significado: significado,
+            ),
+          ];
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao cadastrar simulação: $e')),
+      );
+    }
+  }
+
+  Widget _buildSimulacaoControl() {
+    return Semantics(
+      button: true,
+      label:
+          _simulacaoAtiva
+              ? 'Desativar simulação de sensores'
+              : 'Ativar simulação de sensores',
+      child: Tooltip(
+        message:
+            _simulacaoAtiva
+                ? 'Simulação ativa'
+                : 'Simulação de sensores (administrador)',
+        child: InkWell(
+          onTap: _alternarSimulacao,
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _simulacaoAtiva ? Colors.greenAccent : Colors.redAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 3),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _iniciarKeepAlive() {
@@ -995,6 +1137,7 @@ class _TelaDadosState extends State<TelaDados> {
           backgroundColor: const Color(0xFF0E7D63),
           foregroundColor: Colors.white,
           actions: [
+            if (widget.administrador) _buildSimulacaoControl(),
             IconButton(
               icon: const Icon(Icons.settings),
               onPressed: _mostrarDialogoDeIp,
@@ -1492,11 +1635,14 @@ class _TelaDadosState extends State<TelaDados> {
     );
   }
 
-  Future<void> _confirmarAcaoRele({required String titulo, String? chave}) async {
+  Future<void> _confirmarAcaoRele({
+    required String titulo,
+    String? chave,
+  }) async {
     final chaveEfetiva = chave ?? titulo.toLowerCase();
     final duracaoMaxima = switch (chaveEfetiva) {
       'temperatura' => 35,
-      'bomba' => 15,
+      'bomba' => 5,
       _ => 55,
     };
     final ativar = await showDialog<bool>(
@@ -1531,7 +1677,9 @@ class _TelaDadosState extends State<TelaDados> {
       _atualizarEstadoAtuadores(estado);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$titulo ativado por até $duracaoMaxima segundos.')),
+        SnackBar(
+          content: Text('$titulo ativado por até $duracaoMaxima segundos.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

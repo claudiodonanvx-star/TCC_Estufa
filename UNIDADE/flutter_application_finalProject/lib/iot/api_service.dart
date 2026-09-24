@@ -264,3 +264,26 @@ Future<Map<String, dynamic>> acionarAtuadorManual(
   }
   return json.decode(response.body) as Map<String, dynamic>;
 }
+
+Future<Map<String, dynamic>> enviarLeituraValidacao(
+  String ipAtual,
+  SensorData leitura,
+) async {
+  final response = await http.post(
+    Uri.parse('$ipAtual/api/validar'),
+    headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+    body: json.encode({
+      'temperatura': leitura.temperatura,
+      'umidade': leitura.umidade,
+      'umidadeSolo': leitura.umidadeSolo,
+    }),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception(
+      'Erro ao cadastrar leitura simulada (${response.statusCode}): ${response.body}',
+    );
+  }
+
+  return json.decode(response.body) as Map<String, dynamic>;
+}
