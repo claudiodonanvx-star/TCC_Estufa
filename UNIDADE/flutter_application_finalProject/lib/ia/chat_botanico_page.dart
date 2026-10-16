@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/cadastro/api_settings.dart';
+import 'package:flutter_application_1/cadastro/ip_util.dart';
+import 'package:flutter_application_1/ia/ferramentas_internas.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,7 +23,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   final _scrollController = ScrollController();
   final List<_MensagemChat> _mensagens = [
     const _MensagemChat(
-      texto: 'Olá! Pergunte sobre umidade, temperatura ou cuidados da sua planta.',
+      texto: 'Olá! Posso consultar dados, cultivos, alertas e relatórios da unidade, além de ajudar com plantas.',
       doUsuario: false,
     ),
   ];
@@ -59,6 +61,32 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     _rolarParaFim();
 
     try {
+      final ferramenta = FerramentaInterna.interpretar(textoExibido);
+      if (ferramenta != null && ferramenta.executarLocalmente) {
+        if (ferramenta.exigeConfirmacao && !await _confirmarFerramenta(ferramenta)) {
+          if (mounted) {
+            setState(() {
+              _mensagens.add(const _MensagemChat(
+                texto: 'A solicitação foi cancelada.',
+                doUsuario: false,
+              ));
+            });
+          }
+          return;
+        }
+        final baseUrl = await IpUtil.carregarIp();
+        if (baseUrl == null || baseUrl.isEmpty) {
+          throw Exception('Não foi possível localizar a API da unidade.');
+        }
+        final resultado = await ferramenta.executar(baseUrl);
+        if (mounted) {
+          setState(() {
+            _mensagens.add(_MensagemChat(texto: resultado, doUsuario: false));
+          });
+        }
+        return;
+      }
+
       final baseUrl = await ApiSettings.obterUrlApi();
       final token = await _secureStorage.read(key: 'estufa_jwt');
       final resposta = await http.post(
@@ -122,6 +150,27 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         _rolarParaFim();
       }
     }
+  }
+
+  Future<bool> _confirmarFerramenta(FerramentaInterna ferramenta) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirmar comando'),
+            content: Text(ferramenta.descricaoConfirmacao),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void _rolarParaFim() {

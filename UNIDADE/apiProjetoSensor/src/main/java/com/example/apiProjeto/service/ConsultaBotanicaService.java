@@ -12,10 +12,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.example.apiProjeto.model.Alerta;
+import com.example.apiProjeto.model.Cultivo;
+import com.example.apiProjeto.model.RelatorioDiario;
+import com.example.apiProjeto.model.SensorData;
+import com.example.apiProjeto.repository.AlertaRepository;
+import com.example.apiProjeto.repository.CultivoRepository;
+import com.example.apiProjeto.repository.RelatorioDiarioRepository;
+import com.example.apiProjeto.repository.SensorDataRepository;
+import com.example.apiProjeto.service.AtuadorService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -29,43 +41,54 @@ public class ConsultaBotanicaService {
     private final String aiEndpoint;
     private final String aiModel;
         private final String aiProvider;
+        private final SensorDataRepository sensorDataRepository;
+        private final CultivoRepository cultivoRepository;
+        private final AlertaRepository alertaRepository;
+        private final RelatorioDiarioRepository relatorioRepository;
+        private final AtuadorService atuadorService;
 
     public ConsultaBotanicaService(ObjectMapper objectMapper,
                                    @Value("${app.ai.api-key:}") String aiApiKey,
                                    @Value("${app.ai.endpoint:}") String aiEndpoint,
                                    @Value("${app.ai.model:gemini-2.5-flash}") String aiModel,
-                                   @Value("${app.ai.provider:gemini}") String aiProvider) {
+                                                                   @Value("${app.ai.provider:gemini}") String aiProvider,
+                                                                   SensorDataRepository sensorDataRepository,
+                                                                   CultivoRepository cultivoRepository,
+                                                                   AlertaRepository alertaRepository,
+                                                                   RelatorioDiarioRepository relatorioRepository,
+                                                                   AtuadorService atuadorService) {
         this.objectMapper = objectMapper;
         this.aiApiKey = aiApiKey;
         this.aiEndpoint = aiEndpoint;
         this.aiModel = aiModel;
                 this.aiProvider = aiProvider;
+                this.sensorDataRepository = sensorDataRepository;
+                this.cultivoRepository = cultivoRepository;
+                this.alertaRepository = alertaRepository;
+                this.relatorioRepository = relatorioRepository;
+                this.atuadorService = atuadorService;
     }
 
     public Map<String, Object> consultar(String planta, String pergunta,
                                                                                  Double umidadeAtual, Double temperaturaAtual,
                                                                                  List<Map<String, String>> historico) {
-                String termo = planta == null || planta.isBlank() ? pergunta : planta;
-        List<Map<String, String>> fontes = buscarFontes(termo);
-                String analiseLocal = gerarAnaliseLocal(planta, pergunta, umidadeAtual, temperaturaAtual);
+        String termo = planta == null || planta.isBlank() ? pergunta : planta;
+        String analiseLocal = gerarAnaliseLocal(planta, pergunta, umidadeAtual, temperaturaAtual);
 
         Map<String, Object> resposta = new LinkedHashMap<>();
         resposta.put("planta", termo);
         resposta.put("pergunta", pergunta);
         resposta.put("analiseLocal", analiseLocal);
-        resposta.put("fontes", fontes);
+        resposta.put("fontes", List.of());
 
         if (!aiApiKey.isBlank()) {
             ResultadoIA resultadoIA = gerarRelatorioComIA(planta, pergunta, umidadeAtual,
-                    temperaturaAtual, fontes, analiseLocal, historico);
-            if (!resultadoIA.fontes().isEmpty()) {
-                fontes = resultadoIA.fontes();
-            }
+                    temperaturaAtual, analiseLocal, historico);
             resposta.put("relatorio", resultadoIA.texto());
-            resposta.put("tipo", "agente agrícola com IA e consulta de fontes");
+            resposta.put("tipo", "agente com ferramentas internas");
         } else {
-            resposta.put("relatorio", analiseLocal
-                    + " Configure AI_API_KEY no Render para ativar o agente generativo.");
+            resposta.put("relatorio", "O agente não está configurado para interpretar solicitações. "
+                    + "Configure AI_API_KEY no servidor para ativar o agente e suas ferramentas internas.");
             resposta.put("tipo", "modo local sem chave de IA");
         }
         return resposta;
@@ -95,28 +118,25 @@ public class ConsultaBotanicaService {
     }
 
         private ResultadoIA gerarRelatorioComIA(String planta, String pergunta, Double umidade,
-                                       Double temperatura, List<Map<String, String>> fontes,
-                                       String analiseLocal, List<Map<String, String>> historico) {
+                                                                                        Double temperatura, String analiseLocal,
+                                                                                        List<Map<String, String>> historico) {
         try {
-            String contexto = objectMapper.writeValueAsString(fontes);
             String conversa = objectMapper.writeValueAsString(historico);
-            String tema = identificarTema(pergunta);
-            String prompt = "Você é o Agente Agrícola da Estufa Smart. Responda em português, de forma prática, "
-                    + "didática e prudente. Você deve responder exatamente ao tema perguntado, sem trocar temperatura "
-                    + "por umidade. Identifique a intenção do usuário antes de responder. "
-                    + "Use somente as fontes fornecidas como contexto, indique quando houver incerteza e não invente dados. "
-                    + "Gere um relatório com: resposta direta, faixa ou procedimento recomendado, justificativa, cuidados, "
-                    + "limitações e fontes. Tema identificado: " + tema + ". "
-                    + "Planta: " + planta + ". Pergunta: " + pergunta + ". Umidade atual: " + umidade
-                    + ". Temperatura atual: " + temperatura + ". Análise local: " + analiseLocal
-                    + ". Fontes: " + contexto + ". Histórico da conversa: " + conversa;
+                        String prompt = "Você é o assistente da Estufa Smart. Responda em português, com clareza e objetividade. "
+                                        + "O usuário pode perguntar qualquer coisa sobre dados e recursos internos do sistema. "
+                                        + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
+                                        + "adequada antes de responder. Nunca invente valores, datas, cultivos ou estados. "
+                                        + "As ferramentas são somente para leitura. Se nenhuma ferramenta for necessária, responda normalmente. "
+                                        + "Pergunta atual: " + pergunta + ". Planta informada: " + planta
+                                        + ". Umidade informada: " + umidade + ". Temperatura informada: " + temperatura
+                                        + ". Análise botânica local disponível: " + analiseLocal
+                                        + ". Histórico recente: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                                return gerarComGemini(prompt, analiseLocal);
+                                return new ResultadoIA(gerarComGemini(prompt), List.of());
             }
-                        return new ResultadoIA(textoOuFallback(gerarComOpenAi(prompt), analiseLocal), List.of());
+                        return new ResultadoIA(gerarComOpenAi(prompt), List.of());
         } catch (Exception erro) {
-                        return new ResultadoIA(analiseLocal + " A geração narrativa por IA está temporariamente indisponível. "
-                                        + "Motivo técnico: " + erro.getMessage(), List.of());
+                        return new ResultadoIA("Não consegui concluir a consulta agora. Tente novamente em instantes.", List.of());
         }
     }
 
@@ -172,44 +192,202 @@ public class ConsultaBotanicaService {
                 return "cuidados gerais da planta";
         }
 
-        private ResultadoIA gerarComGemini(String prompt, String fallback) throws Exception {
-                String endpoint = aiEndpoint.isBlank()
-                                ? "https://generativelanguage.googleapis.com/v1beta/models/"
-                                        + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
-                                : aiEndpoint;
-                Map<String, Object> body = Map.of(
-                        "tools", List.of(Map.of("google_search", Map.of())),
-                        "contents", List.of(Map.of(
-                                "role", "user",
-                        "parts", List.of(Map.of("text", prompt)))));
-                JsonNode resposta = objectMapper.readTree(post(endpoint,
-                                objectMapper.writeValueAsString(body), null));
-                if (resposta.has("error")) {
-                    throw new IllegalStateException(resposta.path("error").path("message")
-                            .asText("O provedor Gemini recusou a solicitação."));
-                }
-                String texto = resposta.path("candidates").path(0).path("content").path("parts").path(0)
-                        .path("text").asText("");
-                List<Map<String, String>> fontes = new ArrayList<>();
-                for (JsonNode chunk : resposta.path("candidates").path(0).path("groundingMetadata")
-                        .path("groundingChunks")) {
-                    JsonNode web = chunk.path("web");
-                    String uri = web.path("uri").asText("");
-                    String titulo = web.path("title").asText(uri);
-                    if (!uri.isBlank()) {
-                        fontes.add(Map.of("titulo", titulo, "url", uri, "resumo", "Fonte usada pelo Google Gemini"));
-                    }
-                }
-                return new ResultadoIA(textoOuFallback(texto, fallback), fontes);
-        }
+    private String gerarComGemini(String prompt) throws Exception {
+        String endpoint = aiEndpoint.isBlank()
+                ? "https://generativelanguage.googleapis.com/v1beta/models/"
+                        + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
+                : aiEndpoint;
+        List<Map<String, Object>> contents = new ArrayList<>();
+        contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", prompt))));
 
-        private String gerarComOpenAi(String prompt) throws Exception {
-                String endpoint = aiEndpoint.isBlank() ? "https://api.openai.com/v1/chat/completions" : aiEndpoint;
-                Map<String, Object> body = Map.of("model", aiModel, "temperature", 0.2,
-                                "messages", List.of(Map.of("role", "user", "content", prompt)));
-                JsonNode resposta = objectMapper.readTree(post(endpoint,
-                                objectMapper.writeValueAsString(body), "Bearer " + aiApiKey));
-                return resposta.path("choices").path(0).path("message").path("content").asText("");
+        for (int rodada = 0; rodada < 4; rodada++) {
+            Map<String, Object> body = Map.of(
+                    "tools", List.of(Map.of("functionDeclarations", declaracoesGemini())),
+                    "contents", contents);
+            JsonNode resposta = objectMapper.readTree(post(endpoint,
+                    objectMapper.writeValueAsString(body), null));
+            validarResposta(resposta);
+            JsonNode candidato = resposta.path("candidates").path(0);
+            JsonNode conteudo = candidato.path("content");
+            List<JsonNode> chamadas = new ArrayList<>();
+            for (JsonNode parte : conteudo.path("parts")) {
+                if (parte.has("functionCall")) {
+                    chamadas.add(parte.path("functionCall"));
+                }
+            }
+            if (chamadas.isEmpty()) {
+                StringBuilder texto = new StringBuilder();
+                for (JsonNode parte : conteudo.path("parts")) {
+                    if (parte.has("text")) texto.append(parte.path("text").asText());
+                }
+                return textoOuFallback(texto.toString(), "Não consegui formular uma resposta para a consulta.");
+            }
+
+            contents.add(objectMapper.convertValue(conteudo, Map.class));
+            List<Map<String, Object>> respostasFerramentas = new ArrayList<>();
+            for (JsonNode chamada : chamadas) {
+                String nome = chamada.path("name").asText();
+                Map<String, Object> resultado = executarFerramenta(nome, chamada.path("args"));
+                respostasFerramentas.add(Map.of("functionResponse", Map.of(
+                        "name", nome,
+                        "response", resultado)));
+            }
+            contents.add(Map.of("role", "user", "parts", respostasFerramentas));
+        }
+        return "A consulta exigiu muitas etapas e não pôde ser concluída. Tente uma pergunta mais específica.";
+    }
+
+    private String gerarComOpenAi(String prompt) throws Exception {
+        String endpoint = aiEndpoint.isBlank() ? "https://api.openai.com/v1/chat/completions" : aiEndpoint;
+        List<Map<String, Object>> mensagens = new ArrayList<>();
+        mensagens.add(Map.of("role", "user", "content", prompt));
+
+        for (int rodada = 0; rodada < 4; rodada++) {
+            Map<String, Object> body = Map.of(
+                    "model", aiModel,
+                    "temperature", 0.2,
+                    "messages", mensagens,
+                    "tools", declaracoesOpenAi(),
+                    "tool_choice", "auto");
+            JsonNode resposta = objectMapper.readTree(post(endpoint,
+                    objectMapper.writeValueAsString(body), "Bearer " + aiApiKey));
+            validarResposta(resposta);
+            JsonNode mensagem = resposta.path("choices").path(0).path("message");
+            JsonNode chamadas = mensagem.path("tool_calls");
+            if (!chamadas.isArray() || chamadas.isEmpty()) {
+                return textoOuFallback(mensagem.path("content").asText(""),
+                        "Não consegui formular uma resposta para a consulta.");
+            }
+
+            mensagens.add(objectMapper.convertValue(mensagem, Map.class));
+            for (JsonNode chamada : chamadas) {
+                String nome = chamada.path("function").path("name").asText();
+                JsonNode argumentos = objectMapper.readTree(
+                        chamada.path("function").path("arguments").asText("{}"));
+                Map<String, Object> resultado = executarFerramenta(nome, argumentos);
+                mensagens.add(Map.of(
+                        "role", "tool",
+                        "tool_call_id", chamada.path("id").asText(),
+                        "content", objectMapper.writeValueAsString(resultado)));
+            }
+        }
+        return "A consulta exigiu muitas etapas e não pôde ser concluída. Tente uma pergunta mais específica.";
+    }
+
+    private List<Map<String, Object>> declaracoesGemini() {
+        return List.of(
+                declaracao("consultar_leituras_sensores", "Consulta leituras de sensores armazenadas. "
+                                + "Use quantidade 1 para descobrir quando o último dado foi registrado.", true),
+                declaracao("consultar_total_leituras", "Informa quantas leituras de sensores estão armazenadas.", true),
+                declaracao("consultar_cultivo_ativo", "Consulta os limites do cultivo atualmente habilitado.", true),
+                declaracao("listar_cultivos", "Lista os cultivos cadastrados no sistema.", true),
+                declaracao("consultar_alertas", "Consulta os alertas recentes, opcionalmente filtrados por severidade.", true),
+                declaracao("consultar_relatorios", "Consulta os relatórios diários mais recentes.", true),
+                declaracao("consultar_estado_atuadores", "Consulta o modo e o estado atual dos atuadores.", true));
+    }
+
+    private List<Map<String, Object>> declaracoesOpenAi() {
+        return declaracoesGemini().stream()
+                                .map(declaracao -> {
+                                        @SuppressWarnings("unchecked")
+                                        Map<String, Object> parametrosGemini = (Map<String, Object>) declaracao.get("parameters");
+                                        Map<String, Object> propriedadesGemini = (Map<String, Object>) parametrosGemini.get("properties");
+                                        Map<String, Object> propriedadesOpenAi = new LinkedHashMap<>();
+                                        propriedadesGemini.forEach((nome, propriedade) -> {
+                                                @SuppressWarnings("unchecked")
+                                                Map<String, Object> campoGemini = (Map<String, Object>) propriedade;
+                                                Map<String, Object> campoOpenAi = new LinkedHashMap<>(campoGemini);
+                                                campoOpenAi.computeIfPresent("type", (chave, valor) -> valor.toString().toLowerCase(Locale.ROOT));
+                                                propriedadesOpenAi.put(nome, campoOpenAi);
+                                        });
+                                        Map<String, Object> parametrosOpenAi = Map.of(
+                                                        "type", "object", "properties", propriedadesOpenAi, "required", List.of());
+                                        Map<String, Object> funcao = Map.of(
+                                                        "name", declaracao.get("name"),
+                                                        "description", declaracao.get("description"),
+                                                        "parameters", parametrosOpenAi);
+                                        return Map.<String, Object>of("type", "function", "function", funcao);
+                                })
+                .toList();
+    }
+
+    private Map<String, Object> declaracao(String nome, String descricao, boolean gemini) {
+        String tipoObjeto = gemini ? "OBJECT" : "object";
+        String tipoInteiro = gemini ? "INTEGER" : "integer";
+        String tipoString = gemini ? "STRING" : "string";
+        Map<String, Object> parametros = Map.of(
+                "type", tipoObjeto,
+                "properties", Map.of(
+                        "quantidade", Map.of("type", tipoInteiro, "description", "Quantidade de itens; máximo 50."),
+                        "ordem", Map.of("type", tipoString, "enum", List.of("recentes", "antigos")),
+                        "severidade", Map.of("type", tipoString, "enum", List.of("CRITICO", "ATENCAO"))));
+        return Map.of("name", nome, "description", descricao, "parameters", parametros);
+    }
+
+    private Map<String, Object> executarFerramenta(String nome, JsonNode argumentos) {
+        int quantidade = Math.max(1, Math.min(50, argumentos.path("quantidade").asInt(1)));
+        String ordem = argumentos.path("ordem").asText("recentes");
+        return switch (nome) {
+            case "consultar_leituras_sensores" -> {
+                Sort.Direction direcao = "antigos".equalsIgnoreCase(ordem)
+                        ? Sort.Direction.ASC : Sort.Direction.DESC;
+                List<SensorData> leituras = sensorDataRepository.findAll(PageRequest.of(0, quantidade,
+                        Sort.by(direcao, "coletadoEm").and(Sort.by(direcao, "id")))).getContent();
+                List<Map<String, Object>> itens = leituras.stream().map(leitura -> Map.<String, Object>of(
+                        "id", leitura.getId() == null ? 0L : leitura.getId(),
+                        "registradoEm", leitura.getColetadoEm() == null ? "data não informada" : leitura.getColetadoEm().toString(),
+                        "temperaturaC", leitura.getTemperatura(),
+                        "umidadeArPercentual", leitura.getUmidade(),
+                        "umidadeSoloPercentual", leitura.getUmidadeSolo() == null ? "indisponível" : leitura.getUmidadeSolo())).toList();
+                yield Map.of("quantidadeRetornada", itens.size(), "leituras", itens);
+            }
+            case "consultar_total_leituras" -> Map.of("totalLeituras", sensorDataRepository.count());
+            case "consultar_cultivo_ativo" -> {
+                Cultivo cultivo = cultivoRepository.findFirstByHabilitadaTrueOrderByIdDesc();
+                yield cultivo == null ? Map.of("mensagem", "Não há cultivo ativo.") : Map.of(
+                        "nome", cultivo.getNome(), "tipo", cultivo.getTipo(),
+                        "temperaturaMinima", cultivo.getTemperaturaMinima(),
+                        "temperaturaMaxima", cultivo.getTemperaturaMaxima(),
+                        "umidadeMinima", cultivo.getUmidadeMinima(),
+                        "umidadeMaxima", cultivo.getUmidadeMaxima(),
+                        "umidadeSoloMinima", cultivo.getUmidadeSoloMinima(),
+                        "umidadeSoloMaxima", cultivo.getUmidadeSoloMaxima());
+            }
+            case "listar_cultivos" -> Map.of("cultivos", cultivoRepository.findAll().stream().map(cultivo -> Map.of(
+                    "nome", cultivo.getNome(), "tipo", cultivo.getTipo(),
+                    "habilitada", cultivo.isHabilitada())).toList());
+            case "consultar_alertas" -> {
+                String severidade = argumentos.path("severidade").asText("");
+                List<Alerta> alertas = Set.of("CRITICO", "ATENCAO").contains(severidade.toUpperCase(Locale.ROOT))
+                        ? alertaRepository.findTop20BySeveridadeOrderByGeradoEmDesc(severidade.toUpperCase(Locale.ROOT))
+                        : alertaRepository.findTop100ByOrderByGeradoEmDesc().stream().limit(quantidade).toList();
+                yield Map.of("alertas", alertas.stream().map(alerta -> Map.of(
+                        "severidade", alerta.getSeveridade(), "tipo", alerta.getTipo(),
+                        "valor", alerta.getValor(), "mensagem", alerta.getMensagem() == null ? "" : alerta.getMensagem(),
+                        "registradoEm", alerta.getGeradoEm() == null ? "data não informada" : alerta.getGeradoEm().toString())).toList());
+            }
+            case "consultar_relatorios" -> {
+                Sort.Direction direcao = "antigos".equalsIgnoreCase(ordem)
+                        ? Sort.Direction.ASC : Sort.Direction.DESC;
+                List<RelatorioDiario> relatorios = relatorioRepository.findAll(
+                        PageRequest.of(0, quantidade, Sort.by(direcao, "dataRef"))).getContent();
+                yield Map.of("relatorios", relatorios.stream().map(relatorio -> Map.of(
+                        "data", relatorio.getDataRef().toString(),
+                        "temperaturaMedia", relatorio.getTempMedia(),
+                        "umidadeMedia", relatorio.getUmidadeMedia(),
+                        "umidadeSoloMedia", relatorio.getSoloMedia(),
+                        "totalLeituras", relatorio.getTotalLeituras())).toList());
+            }
+            case "consultar_estado_atuadores" -> atuadorService.obterEstado();
+            default -> Map.of("erro", "Ferramenta interna não permitida.");
+        };
+    }
+
+    private void validarResposta(JsonNode resposta) {
+        if (resposta.has("error")) {
+            throw new IllegalStateException(resposta.path("error").path("message")
+                    .asText("O provedor de IA recusou a solicitação."));
+        }
         }
 
     private String get(String url) throws Exception {
