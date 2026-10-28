@@ -198,8 +198,8 @@ void connectToKnownWifi() {
     sinalizarConectandoWifi();
 
     if (connectToNetwork(trySsid, tryPassword, 15000)) {
-      Serial.println("\n✅ Conectado ao Wi-Fi!");
-      Serial.print("📶 IP do ESP32: ");
+      Serial.println("\nConectado ao Wi-Fi!");
+      Serial.print("IP do ESP32: ");
       Serial.println(WiFi.localIP());
       sinalizarWifiConectado();
       return;
@@ -262,7 +262,7 @@ float lerUmidadeSoloPercentual() {
 
   int leituraMedia = soma / amostras;
 
-  Serial.print("🔎 Solo ADC bruto: ");
+  Serial.print("Solo ADC bruto: ");
   Serial.println(leituraMedia);
 
   if (leituraMedia <= soloDesconectadoADC || leituraMedia >= soloFlutuandoADC) {
@@ -300,7 +300,7 @@ void loop() {
   float umidadeSolo = lerUmidadeSoloPercentual();
 
   if (isnan(temperatura) || isnan(umidade)) {
-    Serial.println("⚠️ Erro na leitura do DHT11 (temperatura/umidade)");
+    Serial.println("Erro na leitura do DHT11 (temperatura/umidade)");
     sinalizarErroLeitura();
     atualizarAtuadoresDaApi();
     delay(10000);
@@ -308,22 +308,22 @@ void loop() {
   }
 
   if (isnan(umidadeSolo)) {
-    Serial.println("⚠️ Sensor de solo desconectado ou sem sinal no GPIO34");
+    Serial.println("Sensor de solo desconectado ou sem sinal no GPIO34");
     sinalizarErroLeitura();
     atualizarAtuadoresDaApi();
     delay(10000);
     return;
   }
 
-  Serial.print("🌡️ Temperatura: ");
+  Serial.print("Temperatura: ");
   Serial.print(temperatura);
   Serial.println(" °C");
 
-  Serial.print("💧 Umidade: ");
+  Serial.print("Umidade: ");
   Serial.print(umidade);
   Serial.println(" %");
 
-  Serial.print("🌱 Umidade do solo: ");
+  Serial.print("Umidade do solo: ");
   Serial.print(umidadeSolo);
   Serial.println(" %");
 
@@ -349,7 +349,7 @@ void loop() {
     if (httpResponseCode > 0) {
       String response = http.getString();
       
-      Serial.println("📥 Resposta da API:");
+      Serial.println("Resposta da API:");
       Serial.println(response);
 
       // Parse JSON
@@ -362,10 +362,10 @@ void loop() {
         int g = doc["g"];
         int b = doc["b"];
 
-        Serial.print("📘 Significado: ");
+        Serial.print("Significado: ");
         Serial.println(significado);
 
-        Serial.print("🎨 Cor RGB: ");
+        Serial.print("Cor RGB: ");
         Serial.print(r); Serial.print(", ");
         Serial.print(g); Serial.print(", ");
         Serial.println(b);
@@ -373,12 +373,12 @@ void loop() {
         sinalizarEnvioComSucesso();
         setColor(r, g, b);
       } else {
-        Serial.println("❌ Erro ao interpretar JSON");
+        Serial.println("Erro ao interpretar JSON");
         sinalizarErroJson();
         setColor(255, 255, 255);
       }
     } else {
-      Serial.print("❌ Erro HTTP: ");
+      Serial.print("Erro HTTP: ");
       Serial.println(httpResponseCode);
       sinalizarFalhaHttp();
       setColor(255, 0, 0);
@@ -386,7 +386,7 @@ void loop() {
 
     http.end();
   } else {
-    Serial.println("❌ Wi-Fi desconectado");
+    Serial.println("Wi-Fi desconectado");
     sinalizarFalhaHttp();
     setColor(255, 0, 0);
 
