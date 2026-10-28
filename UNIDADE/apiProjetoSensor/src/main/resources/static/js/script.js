@@ -185,7 +185,7 @@ function conectar() {
     conectado = true;
 
     connectButton.textContent =
-        "🔌 Desconectar";
+        "Desconectar";
 
     adicionarLog(
         "Conectando à API: " + (apiBase || location.origin)
@@ -204,7 +204,7 @@ function desconectar() {
     conectado = false;
 
     connectButton.textContent =
-        "🔌 Conectar";
+        "Conectar";
 
     connectionDot.classList.remove("connected");
 
@@ -315,7 +315,7 @@ async function verificarDados() {
                 : "--";
 
         adicionarLog(
-            `🌡️ ${ultimo.temperatura.toFixed(1)}°C · 💧 ${ultimo.umidade.toFixed(1)}% · 🌱 ${solo} — ${ultimo.significado ?? ""}`
+            `Temperatura: ${ultimo.temperatura.toFixed(1)}°C · Umidade: ${ultimo.umidade.toFixed(1)}% · Umidade do solo: ${solo} — ${ultimo.significado ?? ""}`
         );
 
     }
