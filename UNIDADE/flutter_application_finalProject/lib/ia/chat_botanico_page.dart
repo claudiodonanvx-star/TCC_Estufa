@@ -168,9 +168,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
               .whereType<Map>()
               .map((fonte) => Map<String, dynamic>.from(fonte))
               .toList();
-      final propostaCadastro = dados['cadastroPendente'] is Map
-          ? Map<String, dynamic>.from(dados['cadastroPendente'] as Map)
-          : null;
+      final propostaCadastro = _extrairPropostaCadastro(dados);
       if (mounted) {
         setState(() {
           _mensagens.add(
@@ -427,6 +425,37 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         const SnackBar(content: Text('Não foi possível abrir a fonte.')),
       );
     }
+  }
+
+  Map<String, dynamic>? _extrairPropostaCadastro(
+    Map<String, dynamic> resposta,
+  ) {
+    final valor = resposta['cadastroPendente'] ?? resposta['acaoPendente'];
+    if (valor is! Map) return null;
+
+    final proposta = Map<String, dynamic>.from(valor);
+    final cultivo = proposta['cultivo'];
+    if (cultivo is Map) {
+      proposta['cultivo'] = Map<String, dynamic>.from(cultivo);
+      return proposta;
+    }
+
+    const camposCultivo = {
+      'nome',
+      'tipo',
+      'temperaturaMinima',
+      'temperaturaMaxima',
+      'umidadeMinima',
+      'umidadeMaxima',
+      'umidadeSoloMinima',
+      'umidadeSoloMaxima',
+    };
+    if (!camposCultivo.every(proposta.containsKey)) return null;
+    return {
+      'cultivo': proposta,
+      'origem': proposta['origem'] ?? 'não informada',
+      'fontes': proposta['fontes'] ?? const <dynamic>[],
+    };
   }
 
   Future<void> _confirmarCadastro(int indice, _MensagemChat mensagem) async {
