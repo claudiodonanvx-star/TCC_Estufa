@@ -30,6 +30,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     ),
   ];
   final Set<int> _cadastrosSalvos = {};
+  final Set<int> _cadastrosCancelados = {};
+  final Set<int> _cadastrosProcessando = {};
   bool _carregando = false;
 
   @override
@@ -114,7 +116,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
             _temperaturaController.text.trim(),
           ),
           'historico': _mensagens
-              .take(12)
+              .skip(_mensagens.length > 12 ? _mensagens.length - 12 : 0)
               .map(
                 (mensagem) => {
                   'papel': mensagem.doUsuario ? 'usuario' : 'agente',
@@ -296,17 +298,35 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                       ],
                       if (mensagem.cadastroPendente != null) ...[
                         const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _cadastrosSalvos.contains(index)
-                              ? null
-                              : () => _confirmarCadastro(index, mensagem),
-                          icon: const Icon(Icons.local_florist_outlined),
-                          label: Text(
-                            _cadastrosSalvos.contains(index)
-                                ? 'Cultivo cadastrado'
-                                : 'Confirmar cadastro do cultivo',
+                        _detalhesCadastro(mensagem.cadastroPendente!),
+                        if (_cadastrosSalvos.contains(index))
+                          const Text('Cultivo cadastrado desabilitado.')
+                        else if (_cadastrosCancelados.contains(index))
+                          const Text('Proposta de cadastro cancelada.')
+                        else ...[
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _cadastrosProcessando.contains(index)
+                                  ? null
+                                  : () => _confirmarCadastro(index, mensagem),
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Confirmar e salvar cultivo'),
+                            ),
                           ),
-                        ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: _cadastrosProcessando.contains(index)
+                                  ? null
+                                  : () => setState(
+                                      () => _cadastrosCancelados.add(index),
+                                    ),
+                              child: const Text('Cancelar proposta'),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -410,6 +430,11 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   }
 
   Future<void> _confirmarCadastro(int indice, _MensagemChat mensagem) async {
+    if (_cadastrosProcessando.contains(indice) ||
+        _cadastrosSalvos.contains(indice) ||
+        _cadastrosCancelados.contains(indice)) {
+      return;
+    }
     final proposta = mensagem.cadastroPendente;
     final cultivo = proposta?['cultivo'];
     if (cultivo is! Map) return;
@@ -440,6 +465,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         false;
     if (!confirmado || !mounted) return;
 
+    setState(() => _cadastrosProcessando.add(indice));
     try {
       final baseUrl = await ApiSettings.obterUrlApi();
       final token = await _secureStorage.read(key: 'estufa_jwt');
@@ -477,7 +503,26 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _cadastrosProcessando.remove(indice));
+      }
     }
+  }
+
+  Widget _detalhesCadastro(Map<String, dynamic> proposta) {
+    final cultivo = proposta['cultivo'];
+    if (cultivo is! Map) {
+      return const Text('A proposta recebida está incompleta.');
+    }
+    final dados = Map<String, dynamic>.from(cultivo);
+    return Text(
+      'Proposta: ${dados['nome']} (${dados['tipo']})\n'
+      'Temperatura: ${dados['temperaturaMinima']}–${dados['temperaturaMaxima']} °C\n'
+      'Umidade do ar: ${dados['umidadeMinima']}–${dados['umidadeMaxima']} %\n'
+      'Umidade do solo: ${dados['umidadeSoloMinima']}–${dados['umidadeSoloMaxima']} %\n'
+      'Origem: ${proposta['origem'] ?? 'não informada'}',
+    );
   }
 
   Widget _campo(TextEditingController controller, String label, IconData icon) {
