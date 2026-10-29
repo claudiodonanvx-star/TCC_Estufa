@@ -46,6 +46,7 @@ public class ConsultaBotanicaService {
         private final AlertaRepository alertaRepository;
         private final RelatorioDiarioRepository relatorioRepository;
         private final AtuadorService atuadorService;
+        private final ConsultaBancoLeituraService consultaBancoLeituraService;
 
     public ConsultaBotanicaService(ObjectMapper objectMapper,
                                    @Value("${app.ai.api-key:}") String aiApiKey,
@@ -56,7 +57,8 @@ public class ConsultaBotanicaService {
                                                                    CultivoRepository cultivoRepository,
                                                                    AlertaRepository alertaRepository,
                                                                    RelatorioDiarioRepository relatorioRepository,
-                                                                   AtuadorService atuadorService) {
+                                                                   AtuadorService atuadorService,
+                                                                   ConsultaBancoLeituraService consultaBancoLeituraService) {
         this.objectMapper = objectMapper;
         this.aiApiKey = aiApiKey;
         this.aiEndpoint = aiEndpoint;
@@ -67,6 +69,7 @@ public class ConsultaBotanicaService {
                 this.alertaRepository = alertaRepository;
                 this.relatorioRepository = relatorioRepository;
                 this.atuadorService = atuadorService;
+                this.consultaBancoLeituraService = consultaBancoLeituraService;
     }
 
     public Map<String, Object> consultar(String planta, String pergunta,
@@ -125,8 +128,10 @@ public class ConsultaBotanicaService {
                         String prompt = "Você é o assistente da Estufa Smart. Responda em português, com clareza e objetividade. "
                                         + "O usuário pode perguntar qualquer coisa sobre dados e recursos internos do sistema. "
                                         + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
-                                        + "adequada antes de responder. Nunca invente valores, datas, cultivos ou estados. "
-                                        + "As ferramentas são somente para leitura. Se nenhuma ferramenta for necessária, responda normalmente. "
+                                        + "adequada antes de responder. Para buscas que não se encaixem nas consultas específicas, use "
+                                        + "consultar_dados_operacionais_banco. Nunca invente valores, datas, cultivos ou estados. "
+                                        + "As ferramentas consultam somente dados operacionais em modo de leitura; não tente acessar "
+                                        + "usuários, clientes, credenciais ou outras tabelas. Se nenhuma ferramenta for necessária, responda normalmente. "
                                         + "Pergunta atual: " + pergunta + ". Planta informada: " + planta
                                         + ". Umidade informada: " + umidade + ". Temperatura informada: " + temperatura
                                         + ". Análise botânica local disponível: " + analiseLocal
@@ -283,7 +288,32 @@ public class ConsultaBotanicaService {
                 declaracao("listar_cultivos", "Lista os cultivos cadastrados no sistema.", true),
                 declaracao("consultar_alertas", "Consulta os alertas recentes, opcionalmente filtrados por severidade.", true),
                 declaracao("consultar_relatorios", "Consulta os relatórios diários mais recentes.", true),
-                declaracao("consultar_estado_atuadores", "Consulta o modo e o estado atual dos atuadores.", true));
+                declaracao("consultar_estado_atuadores", "Consulta o modo e o estado atual dos atuadores.", true),
+                declaracaoConsultaBanco());
+    }
+
+    private Map<String, Object> declaracaoConsultaBanco() {
+        return Map.of(
+                "name", "consultar_dados_operacionais_banco",
+                "description", "Executa uma busca somente leitura diretamente no banco de dados operacional, sem depender de rotas específicas da API. Escolha uma tabela permitida; resultados são limitados a 50 linhas. Nunca use para buscar dados de usuários, clientes ou credenciais.",
+                "parameters", Map.of(
+                        "type", "OBJECT",
+                        "properties", Map.of(
+                                "tabela", Map.of(
+                                        "type", "STRING",
+                                        "enum", List.of("sensor_data", "cultivos", "alertas", "relatorio_diario"),
+                                        "description", "Tabela operacional permitida."),
+                                "termo", Map.of(
+                                        "type", "STRING",
+                                        "description", "Texto parcial para sensor_data, cultivos e alertas; data exata AAAA-MM-DD para relatorio_diario."),
+                                "quantidade", Map.of(
+                                        "type", "INTEGER",
+                                        "description", "Quantidade máxima de linhas entre 1 e 50."),
+                                "ordem", Map.of(
+                                        "type", "STRING",
+                                        "enum", List.of("recentes", "antigos"),
+                                        "description", "Ordenação por data ou identificador.")),
+                        "required", List.of("tabela")));
     }
 
     private List<Map<String, Object>> declaracoesOpenAi() {
@@ -300,8 +330,12 @@ public class ConsultaBotanicaService {
                                                 campoOpenAi.computeIfPresent("type", (chave, valor) -> valor.toString().toLowerCase(Locale.ROOT));
                                                 propriedadesOpenAi.put(nome, campoOpenAi);
                                         });
+                                        @SuppressWarnings("unchecked")
+                                        List<String> camposObrigatorios =
+                                                        (List<String>) parametrosGemini.getOrDefault("required", List.of());
                                         Map<String, Object> parametrosOpenAi = Map.of(
-                                                        "type", "object", "properties", propriedadesOpenAi, "required", List.of());
+                                                        "type", "object", "properties", propriedadesOpenAi,
+                                                        "required", camposObrigatorios);
                                         Map<String, Object> funcao = Map.of(
                                                         "name", declaracao.get("name"),
                                                         "description", declaracao.get("description"),
@@ -379,6 +413,11 @@ public class ConsultaBotanicaService {
                         "totalLeituras", relatorio.getTotalLeituras())).toList());
             }
             case "consultar_estado_atuadores" -> atuadorService.obterEstado();
+            case "consultar_dados_operacionais_banco" -> consultaBancoLeituraService.consultar(
+                    argumentos.path("tabela").asText(""),
+                    argumentos.path("termo").asText(""),
+                    quantidade,
+                    ordem);
             default -> Map.of("erro", "Ferramenta interna não permitida.");
         };
     }

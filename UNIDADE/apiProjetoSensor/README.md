@@ -50,6 +50,12 @@ Ele busca fontes públicas na Wikipedia, combina a informação com a leitura da
 
 O módulo de IA usa o histórico real ou sintético persistido em `sensor_data`. Ele calcula médias da janela recente e compara o início com o fim da janela para identificar tendência de temperatura e umidade. Também gera alertas interpretáveis quando a umidade do solo está baixa ou alta. A resposta informa a quantidade de amostras, as médias, as tendências, os insights e o método utilizado, permitindo demonstrar o raciocínio durante a banca.
 
+## Consultas de dados pelo agente
+
+Além das ferramentas de consulta específicas, o agente pode executar buscas somente leitura diretamente no banco, sem criar uma rota de API para cada consulta. A ferramenta aceita apenas as tabelas operacionais `sensor_data`, `cultivos`, `alertas` e `relatorio_diario`; não aceita SQL livre, limita cada busca a 50 linhas e usa parâmetros para os termos pesquisados. Usuários, clientes, senhas, credenciais e configurações não são disponibilizados ao agente.
+
+Como a resposta da ferramenta é enviada ao provedor de IA configurado, mantenha nessa lista apenas dados operacionais que podem ser compartilhados com esse provedor.
+
 ## Segurança e sincronização
 
 O login retorna um JWT assinado por HMAC e as senhas novas são armazenadas com BCrypt. Usuários antigos são convertidos para BCrypt no primeiro login bem-sucedido. Para exigir JWT nas rotas da API, configure `JWT_ENFORCE=true` e defina `JWT_SECRET` com pelo menos 32 caracteres. O padrão permanece desativado durante a migração dos clientes e do firmware.
