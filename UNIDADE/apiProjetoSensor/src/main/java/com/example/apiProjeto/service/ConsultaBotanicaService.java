@@ -42,6 +42,7 @@ public class ConsultaBotanicaService {
     private static final System.Logger LOGGER =
             System.getLogger(ConsultaBotanicaService.class.getName());
     private static final int MAXIMO_RODADAS_FERRAMENTAS = 8;
+    private static final int MAXIMO_FONTES_EXTERNAS = 5;
     private static final Pattern NUMERO_PATTERN = Pattern.compile("(?<![\\d])\\d+(?:[.,]\\d+)?(?![\\d])");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -51,6 +52,7 @@ public class ConsultaBotanicaService {
     private final String aiEndpoint;
     private final String aiModel;
         private final String aiProvider;
+        private final String wikipediaEndpoint;
         private final SensorDataRepository sensorDataRepository;
         private final CultivoRepository cultivoRepository;
         private final AlertaRepository alertaRepository;
@@ -63,6 +65,8 @@ public class ConsultaBotanicaService {
                                    @Value("${app.ai.endpoint:}") String aiEndpoint,
                                    @Value("${app.ai.model:gemini-2.5-flash}") String aiModel,
                                                                    @Value("${app.ai.provider:gemini}") String aiProvider,
+                                                                   @Value("${app.ai.wikipedia-endpoint:https://pt.wikipedia.org/w/api.php}")
+                                                                   String wikipediaEndpoint,
                                                                    SensorDataRepository sensorDataRepository,
                                                                    CultivoRepository cultivoRepository,
                                                                    AlertaRepository alertaRepository,
@@ -74,6 +78,7 @@ public class ConsultaBotanicaService {
         this.aiEndpoint = aiEndpoint;
         this.aiModel = aiModel;
                 this.aiProvider = aiProvider;
+        this.wikipediaEndpoint = wikipediaEndpoint;
                 this.sensorDataRepository = sensorDataRepository;
                 this.cultivoRepository = cultivoRepository;
                 this.alertaRepository = alertaRepository;
@@ -137,7 +142,94 @@ public class ConsultaBotanicaService {
     }
 
     private List<Map<String, String>> buscarFontes(String termo) throws Exception {
-        String urlBusca = "https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch="
+        if ("gemini".equalsIgnoreCase(aiProvider) && !aiApiKey.isBlank()) {
+            try {
+                List<Map<String, String>> fontesGoogle = buscarFontesGoogle(termo);
+                if (!fontesGoogle.isEmpty()) {
+                    return fontesGoogle;
+                }
+            } catch (Exception erro) {
+                LOGGER.log(System.Logger.Level.WARNING,
+                        "A pesquisa Google do Gemini falhou; usando a fonte externa alternativa.", erro);
+            }
+        }
+
+        return buscarFontesWikipedia(termo);
+    }
+
+    private List<Map<String, String>> buscarFontesGoogle(String termo) throws Exception {
+        String endpoint = endpointGemini();
+        String prompt = "Pesquise na web informações confiáveis sobre " + termo
+                + " para responder uma pergunta sobre cultivo. Priorize fontes técnicas "
+                + "oficiais, como Embrapa, universidades, órgãos públicos e institutos de pesquisa. "
+                + "Resuma somente informações sustentadas pelas fontes e cite as fontes consultadas.";
+        Map<String, Object> body = Map.of(
+                "tools", List.of(Map.of("google_search", Map.of())),
+                "contents", List.of(Map.of(
+                        "role", "user",
+                        "parts", List.of(Map.of("text", prompt)))));
+        JsonNode resposta = objectMapper.readTree(post(
+                endpoint, objectMapper.writeValueAsString(body), null));
+        validarResposta(resposta);
+
+        JsonNode candidato = resposta.path("candidates").path(0);
+        Map<Integer, Map<String, String>> fontesPorIndice = new LinkedHashMap<>();
+        JsonNode chunks = candidato.path("groundingMetadata").path("groundingChunks");
+        for (int indice = 0; indice < chunks.size(); indice++) {
+            JsonNode web = chunks.path(indice).path("web");
+            String titulo = web.path("title").asText("");
+            String url = web.path("uri").asText("");
+            if (!titulo.isBlank() && urlValida(url)) {
+                Map<String, String> fonte = new LinkedHashMap<>();
+                fonte.put("titulo", titulo);
+                fonte.put("url", url);
+                fonte.put("resumo", "");
+                fontesPorIndice.put(indice, fonte);
+            }
+        }
+
+        for (JsonNode suporte : candidato.path("groundingMetadata").path("groundingSupports")) {
+            String trecho = suporte.path("segment").path("text").asText("").trim();
+            if (trecho.isEmpty()) {
+                continue;
+            }
+            for (JsonNode indiceNode : suporte.path("groundingChunkIndices")) {
+                Map<String, String> fonte = fontesPorIndice.get(indiceNode.asInt(-1));
+                if (fonte != null && fonte.get("resumo").length() < 4000) {
+                    String resumo = fonte.get("resumo");
+                    fonte.put("resumo", resumo.isEmpty() ? trecho
+                            : resumo + " " + trecho);
+                }
+            }
+        }
+        return fontesPorIndice.values().stream()
+                .filter(fonte -> !fonte.get("resumo").isBlank())
+                .limit(MAXIMO_FONTES_EXTERNAS)
+                .map(Map::copyOf)
+                .toList();
+    }
+
+    private boolean urlValida(String valor) {
+        try {
+            URI uri = URI.create(valor);
+            return uri.getHost() != null
+                    && ("https".equalsIgnoreCase(uri.getScheme())
+                            || "http".equalsIgnoreCase(uri.getScheme()));
+        } catch (IllegalArgumentException erro) {
+            return false;
+        }
+    }
+
+    private String endpointGemini() {
+        return aiEndpoint.isBlank()
+                ? "https://generativelanguage.googleapis.com/v1beta/models/"
+                        + aiModel + ":generateContent?key="
+                        + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
+                : aiEndpoint;
+    }
+
+    private List<Map<String, String>> buscarFontesWikipedia(String termo) throws Exception {
+        String urlBusca = wikipediaEndpoint + "?action=query&list=search&srsearch="
                 + URLEncoder.encode(termo + " cultivo", StandardCharsets.UTF_8)
                 + "&format=json&utf8=1&srlimit=3";
         JsonNode busca = objectMapper.readTree(get(urlBusca));
@@ -152,7 +244,7 @@ public class ConsultaBotanicaService {
             return List.of();
         }
 
-        String urlExtratos = "https://pt.wikipedia.org/w/api.php?action=query&pageids="
+        String urlExtratos = wikipediaEndpoint + "?action=query&pageids="
                 + String.join("|", ids)
                 + "&prop=extracts&exintro=1&explaintext=1&format=json&utf8=1";
         JsonNode paginas = objectMapper.readTree(get(urlExtratos)).path("query").path("pages");
@@ -186,11 +278,15 @@ public class ConsultaBotanicaService {
                                         + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
                                         + "adequada antes de responder. Para buscas que não se encaixem nas consultas específicas, use "
                                         + "consultar_dados_operacionais_banco e use os filtros de intervalo quando a pergunta citar datas. "
+                                        + "Para perguntas factuais sobre plantas, cultivo, condições ideais, identificação ou doenças, "
+                                        + "use buscar_fontes_cultivo antes de responder, mesmo que já conheça o assunto. Baseie as "
+                                        + "afirmações botânicas nos trechos e URLs retornados, cite as fontes e não alegue que pesquisou "
+                                        + "se não recebeu resultados verificáveis. "
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
                                         + "Nunca invente valores, datas, cultivos, faixas agronômicas ou estados. "
                                         + "Para cadastrar uma planta: se o usuário forneceu todas as seis faixas, use a origem usuario; "
-                                        + "se faltarem faixas, pesquise com buscar_fontes_cultivo e use somente valores numéricos "
+                                        + "se faltarem faixas, pesquise na web com buscar_fontes_cultivo e use somente valores numéricos "
                                         + "presentes nos textos retornados. Se as fontes não trouxerem todos os valores, não os estime: "
                                         + "peça ao usuário os valores ausentes. Prepare o cadastro com preparar_cadastro_cultivo, "
                                         + "mas nunca diga que foi salvo: o usuário precisa confirmar no botão da aplicação. "
@@ -271,10 +367,7 @@ public class ConsultaBotanicaService {
         }
 
     private ResultadoIA gerarComGemini(String prompt, String dadosInformadosPeloUsuario) throws Exception {
-        String endpoint = aiEndpoint.isBlank()
-                ? "https://generativelanguage.googleapis.com/v1beta/models/"
-                        + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
-                : aiEndpoint;
+        String endpoint = endpointGemini();
         List<Map<String, Object>> contents = new ArrayList<>();
         contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", prompt))));
 
@@ -419,7 +512,7 @@ public class ConsultaBotanicaService {
     private Map<String, Object> declaracaoBuscaCultivo() {
         return Map.of(
                 "name", "buscar_fontes_cultivo",
-                "description", "Pesquisa páginas externas da Wikipédia e retorna trechos reais com links. Use antes de sugerir faixas não fornecidas pelo usuário. Não invente valores que não estejam nos trechos.",
+                "description", "Pesquisa a web em tempo real com Google Search para encontrar páginas técnicas externas, priorizando Embrapa, universidades, órgãos públicos e institutos de pesquisa; retorna trechos citados e URLs. Use antes de responder perguntas botânicas factuais ou sugerir faixas não fornecidas pelo usuário. Não invente valores que não estejam nos trechos.",
                 "parameters", Map.of(
                         "type", "OBJECT",
                         "properties", Map.of(

@@ -34,6 +34,7 @@ class ConsultaBotanicaCadastroTest {
                 "",
                 "gemini",
                 null,
+                null,
                 cultivoRepository,
                 null,
                 null,

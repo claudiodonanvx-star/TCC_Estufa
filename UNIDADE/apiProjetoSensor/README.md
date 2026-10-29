@@ -44,7 +44,7 @@ O endpoint recebe, por exemplo:
 }
 ```
 
-O agente só consulta a Wikipedia quando aciona a ferramenta externa; nesse caso, a resposta inclui os links efetivamente consultados. Sem chamada da ferramenta, não deve afirmar que fez pesquisa externa. Para gerar texto narrativo por um modelo de IA, configure `AI_API_KEY` no Render. Também é possível trocar `AI_ENDPOINT` e `AI_MODEL` por um provedor compatível com a API OpenAI.
+Para perguntas factuais sobre plantas, cultivo, condições ideais, identificação ou doenças, o agente aciona `buscar_fontes_cultivo` antes de responder. O Gemini faz uma pesquisa na web em tempo real usando Google Search Grounding e devolve citações verificáveis, priorizando fontes técnicas como Embrapa, universidades e órgãos públicos. Os trechos citados e os URLs são mostrados no chat e usados para fundamentar a resposta. Se o Grounding falhar ou não trouxer citações, a API tenta a busca de artigos da Wikipedia como alternativa. Sem fontes verificáveis, o agente não deve inventar fatos nem faixas agronômicas. Para gerar texto narrativo e habilitar a busca com Gemini, configure `AI_API_KEY` no Render e use um modelo compatível com Google Search Grounding. O Grounding pode gerar cobrança conforme o plano e o modelo. Também é possível trocar `AI_ENDPOINT` e `AI_MODEL` por um provedor compatível com a API OpenAI; nesse caso, a busca alternativa da Wikipedia é usada.
 
 ## IA explicável
 
@@ -58,7 +58,7 @@ Como a resposta da ferramenta é enviada ao provedor de IA configurado, mantenha
 
 Para pedir um arquivo pelo chat, solicite um relatório CSV ou PDF e informe o período. O agente gera um link de download dos dados operacionais selecionados; exportações aceitam até 31 dias e 5.000 registros. A consulta em linguagem natural suporta até oito rodadas de ferramentas por pergunta.
 
-Para cadastrar um cultivo pelo chat, informe o nome e as faixas mínima e máxima de temperatura, umidade do ar e umidade do solo. Se os valores não forem informados, o agente pode pesquisar páginas da Wikipedia e propor valores somente quando os números estiverem presentes nos trechos retornados. A proposta exibe os links consultados e não é salva até a confirmação explícita no chat. Cultivos criados pelo chat permanecem desabilitados; habilitá-los é uma ação separada. Se as fontes não trouxerem todas as seis faixas, o agente deve pedir os valores faltantes em vez de estimá-los.
+Para cadastrar um cultivo pelo chat, informe o nome e as faixas mínima e máxima de temperatura, umidade do ar e umidade do solo. Se os valores não forem informados, o agente pode pesquisar fontes técnicas da web e propor valores somente quando eles estiverem presentes nos trechos citados. A proposta exibe os links consultados e não é salva até a confirmação explícita no chat. Cultivos criados pelo chat permanecem desabilitados; habilitá-los é uma ação separada. Se as fontes não trouxerem todas as seis faixas, o agente deve pedir os valores faltantes em vez de estimá-los.
 
 ## Segurança e sincronização
 
