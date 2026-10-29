@@ -3,6 +3,7 @@ package com.example.apiProjeto.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
@@ -13,7 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.jdbc.Sql;
 
 @JdbcTest
-@Import(ConsultaBancoLeituraService.class)
+@Import({ConsultaBancoLeituraService.class, ArquivoRelatorioService.class})
 @Sql(statements = {
         "DROP TABLE IF EXISTS sensor_data",
         "DROP TABLE IF EXISTS cultivos",
@@ -48,6 +49,9 @@ class ConsultaBancoLeituraServiceTest {
     @Autowired
     private ConsultaBancoLeituraService service;
 
+    @Autowired
+    private ArquivoRelatorioService arquivoRelatorioService;
+
     @Test
     void searchesOperationalDataAndReturnsOnlyWhitelistedColumns() {
         Map<String, Object> resultado = service.consultar("sensor_data", "saudável", 10, "recentes");
@@ -75,6 +79,32 @@ class ConsultaBancoLeituraServiceTest {
                 .get("quantidadeRetornada"));
         assertEquals(1, service.consultar("relatorio_diario", "2026-10-28", 10, "recentes")
                 .get("quantidadeRetornada"));
+    }
+
+    @Test
+    void filtersSensorReadingsByInclusiveDateRange() {
+        Map<String, Object> resultado = service.consultar(
+                "sensor_data", "", java.time.LocalDate.parse("2026-10-28"),
+                java.time.LocalDate.parse("2026-10-28"), 50, "recentes");
+
+        assertEquals(1, resultado.get("quantidadeRetornada"));
+    }
+
+    @Test
+    void generatesCsvAndPdfDownloadsForRequestedPeriod() {
+        ArquivoRelatorioService.ArquivoGerado csv = arquivoRelatorioService.gerar(
+                "sensor_data", java.time.LocalDate.parse("2026-10-28"),
+                java.time.LocalDate.parse("2026-10-28"), "csv");
+        ArquivoRelatorioService.ArquivoGerado pdf = arquivoRelatorioService.gerar(
+                "sensor_data", java.time.LocalDate.parse("2026-10-28"),
+                java.time.LocalDate.parse("2026-10-28"), "pdf");
+
+        assertEquals("text/csv;charset=UTF-8", csv.tipoMime());
+        assertTrue(new String(csv.conteudo(), java.nio.charset.StandardCharsets.UTF_8)
+                .contains("estufa saudável"));
+        assertEquals("application/pdf", pdf.tipoMime());
+        assertTrue(new String(pdf.conteudo(), java.nio.charset.StandardCharsets.US_ASCII)
+                .startsWith("%PDF-1.4"));
     }
 
     @Test

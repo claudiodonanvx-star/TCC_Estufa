@@ -52,9 +52,11 @@ O módulo de IA usa o histórico real ou sintético persistido em `sensor_data`.
 
 ## Consultas de dados pelo agente
 
-Além das ferramentas de consulta específicas, o agente pode executar buscas somente leitura diretamente no banco, sem criar uma rota de API para cada consulta. A ferramenta aceita apenas as tabelas operacionais `sensor_data`, `cultivos`, `alertas` e `relatorio_diario`; não aceita SQL livre, limita cada busca a 50 linhas e usa parâmetros para os termos pesquisados. Usuários, clientes, senhas, credenciais e configurações não são disponibilizados ao agente.
+Além das ferramentas de consulta específicas, o agente pode executar buscas somente leitura diretamente no banco, sem criar uma rota de API para cada consulta. A ferramenta aceita apenas as tabelas operacionais `sensor_data`, `cultivos`, `alertas` e `relatorio_diario`; não aceita SQL livre, limita cada busca a 50 linhas e usa parâmetros para os termos pesquisados. Também aceita intervalos de datas em leituras, alertas e relatórios diários.
 
 Como a resposta da ferramenta é enviada ao provedor de IA configurado, mantenha nessa lista apenas dados operacionais que podem ser compartilhados com esse provedor.
+
+Para pedir um arquivo pelo chat, solicite um relatório CSV ou PDF e informe o período. O agente gera um link de download dos dados operacionais selecionados; exportações aceitam até 31 dias e 5.000 registros. A consulta em linguagem natural suporta até oito rodadas de ferramentas por pergunta.
 
 ## Segurança e sincronização
 

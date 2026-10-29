@@ -7,6 +7,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +35,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class ConsultaBotanicaService {
+
+    private static final System.Logger LOGGER =
+            System.getLogger(ConsultaBotanicaService.class.getName());
+    private static final int MAXIMO_RODADAS_FERRAMENTAS = 8;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8)).build();
@@ -89,6 +95,10 @@ public class ConsultaBotanicaService {
                     temperaturaAtual, analiseLocal, historico);
             resposta.put("relatorio", resultadoIA.texto());
             resposta.put("tipo", "agente com ferramentas internas");
+            if (resultadoIA.arquivoUrl() != null) {
+                resposta.put("arquivoUrl", resultadoIA.arquivoUrl());
+                resposta.put("arquivoNome", resultadoIA.arquivoNome());
+            }
         } else {
             resposta.put("relatorio", "O agente não está configurado para interpretar solicitações. "
                     + "Configure AI_API_KEY no servidor para ativar o agente e suas ferramentas internas.");
@@ -129,23 +139,29 @@ public class ConsultaBotanicaService {
                                         + "O usuário pode perguntar qualquer coisa sobre dados e recursos internos do sistema. "
                                         + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
                                         + "adequada antes de responder. Para buscas que não se encaixem nas consultas específicas, use "
-                                        + "consultar_dados_operacionais_banco. Nunca invente valores, datas, cultivos ou estados. "
+                                        + "consultar_dados_operacionais_banco e use os filtros de intervalo quando a pergunta citar datas. "
+                                        + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
+                                        + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
+                                        + "Nunca invente valores, datas, cultivos ou estados. "
                                         + "As ferramentas consultam somente dados operacionais em modo de leitura; não tente acessar "
                                         + "usuários, clientes, credenciais ou outras tabelas. Se nenhuma ferramenta for necessária, responda normalmente. "
+                                        + "A data de hoje é " + LocalDate.now() + ". "
                                         + "Pergunta atual: " + pergunta + ". Planta informada: " + planta
                                         + ". Umidade informada: " + umidade + ". Temperatura informada: " + temperatura
                                         + ". Análise botânica local disponível: " + analiseLocal
                                         + ". Histórico recente: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                                return new ResultadoIA(gerarComGemini(prompt), List.of());
+                                return gerarComGemini(prompt);
             }
-                        return new ResultadoIA(gerarComOpenAi(prompt), List.of());
+                        return gerarComOpenAi(prompt);
         } catch (Exception erro) {
-                        return new ResultadoIA("Não consegui concluir a consulta agora. Tente novamente em instantes.", List.of());
+                        LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
+                        return new ResultadoIA(
+                                "Não consegui concluir a consulta agora. Tente novamente em instantes.", null, null);
         }
     }
 
-        private record ResultadoIA(String texto, List<Map<String, String>> fontes) {}
+        private record ResultadoIA(String texto, String arquivoUrl, String arquivoNome) {}
 
         private String textoOuFallback(String texto, String fallback) {
                 return texto == null || texto.isBlank()
@@ -197,7 +213,7 @@ public class ConsultaBotanicaService {
                 return "cuidados gerais da planta";
         }
 
-    private String gerarComGemini(String prompt) throws Exception {
+    private ResultadoIA gerarComGemini(String prompt) throws Exception {
         String endpoint = aiEndpoint.isBlank()
                 ? "https://generativelanguage.googleapis.com/v1beta/models/"
                         + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
@@ -205,7 +221,9 @@ public class ConsultaBotanicaService {
         List<Map<String, Object>> contents = new ArrayList<>();
         contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", prompt))));
 
-        for (int rodada = 0; rodada < 4; rodada++) {
+        String arquivoUrl = null;
+        String arquivoNome = null;
+        for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "tools", List.of(Map.of("functionDeclarations", declaracoesGemini())),
                     "contents", contents);
@@ -225,7 +243,10 @@ public class ConsultaBotanicaService {
                 for (JsonNode parte : conteudo.path("parts")) {
                     if (parte.has("text")) texto.append(parte.path("text").asText());
                 }
-                return textoOuFallback(texto.toString(), "Não consegui formular uma resposta para a consulta.");
+                return new ResultadoIA(
+                        textoOuFallback(texto.toString(), "Não consegui formular uma resposta para a consulta."),
+                        arquivoUrl,
+                        arquivoNome);
             }
 
             contents.add(objectMapper.convertValue(conteudo, Map.class));
@@ -233,21 +254,30 @@ public class ConsultaBotanicaService {
             for (JsonNode chamada : chamadas) {
                 String nome = chamada.path("name").asText();
                 Map<String, Object> resultado = executarFerramenta(nome, chamada.path("args"));
+                if (resultado.containsKey("arquivoUrl")) {
+                    arquivoUrl = resultado.get("arquivoUrl").toString();
+                    arquivoNome = resultado.get("arquivoNome").toString();
+                }
                 respostasFerramentas.add(Map.of("functionResponse", Map.of(
                         "name", nome,
                         "response", resultado)));
             }
             contents.add(Map.of("role", "user", "parts", respostasFerramentas));
         }
-        return "A consulta exigiu muitas etapas e não pôde ser concluída. Tente uma pergunta mais específica.";
+        return new ResultadoIA(
+                "A consulta ainda não foi concluída após várias buscas. Tente pedir uma informação por vez.",
+                arquivoUrl,
+                arquivoNome);
     }
 
-    private String gerarComOpenAi(String prompt) throws Exception {
+    private ResultadoIA gerarComOpenAi(String prompt) throws Exception {
         String endpoint = aiEndpoint.isBlank() ? "https://api.openai.com/v1/chat/completions" : aiEndpoint;
         List<Map<String, Object>> mensagens = new ArrayList<>();
         mensagens.add(Map.of("role", "user", "content", prompt));
 
-        for (int rodada = 0; rodada < 4; rodada++) {
+        String arquivoUrl = null;
+        String arquivoNome = null;
+        for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "model", aiModel,
                     "temperature", 0.2,
@@ -260,8 +290,11 @@ public class ConsultaBotanicaService {
             JsonNode mensagem = resposta.path("choices").path(0).path("message");
             JsonNode chamadas = mensagem.path("tool_calls");
             if (!chamadas.isArray() || chamadas.isEmpty()) {
-                return textoOuFallback(mensagem.path("content").asText(""),
-                        "Não consegui formular uma resposta para a consulta.");
+                return new ResultadoIA(
+                        textoOuFallback(mensagem.path("content").asText(""),
+                                "Não consegui formular uma resposta para a consulta."),
+                        arquivoUrl,
+                        arquivoNome);
             }
 
             mensagens.add(objectMapper.convertValue(mensagem, Map.class));
@@ -270,13 +303,20 @@ public class ConsultaBotanicaService {
                 JsonNode argumentos = objectMapper.readTree(
                         chamada.path("function").path("arguments").asText("{}"));
                 Map<String, Object> resultado = executarFerramenta(nome, argumentos);
+                if (resultado.containsKey("arquivoUrl")) {
+                    arquivoUrl = resultado.get("arquivoUrl").toString();
+                    arquivoNome = resultado.get("arquivoNome").toString();
+                }
                 mensagens.add(Map.of(
                         "role", "tool",
                         "tool_call_id", chamada.path("id").asText(),
                         "content", objectMapper.writeValueAsString(resultado)));
             }
         }
-        return "A consulta exigiu muitas etapas e não pôde ser concluída. Tente uma pergunta mais específica.";
+        return new ResultadoIA(
+                "A consulta ainda não foi concluída após várias buscas. Tente pedir uma informação por vez.",
+                arquivoUrl,
+                arquivoNome);
     }
 
     private List<Map<String, Object>> declaracoesGemini() {
@@ -289,7 +329,8 @@ public class ConsultaBotanicaService {
                 declaracao("consultar_alertas", "Consulta os alertas recentes, opcionalmente filtrados por severidade.", true),
                 declaracao("consultar_relatorios", "Consulta os relatórios diários mais recentes.", true),
                 declaracao("consultar_estado_atuadores", "Consulta o modo e o estado atual dos atuadores.", true),
-                declaracaoConsultaBanco());
+                declaracaoConsultaBanco(),
+                declaracaoGerarRelatorio());
     }
 
     private Map<String, Object> declaracaoConsultaBanco() {
@@ -306,6 +347,12 @@ public class ConsultaBotanicaService {
                                 "termo", Map.of(
                                         "type", "STRING",
                                         "description", "Texto parcial para sensor_data, cultivos e alertas; data exata AAAA-MM-DD para relatorio_diario."),
+                                "inicio", Map.of(
+                                        "type", "STRING",
+                                        "description", "Data inicial inclusiva do filtro, no formato AAAA-MM-DD."),
+                                "fim", Map.of(
+                                        "type", "STRING",
+                                        "description", "Data final inclusiva do filtro, no formato AAAA-MM-DD."),
                                 "quantidade", Map.of(
                                         "type", "INTEGER",
                                         "description", "Quantidade máxima de linhas entre 1 e 50."),
@@ -314,6 +361,30 @@ public class ConsultaBotanicaService {
                                         "enum", List.of("recentes", "antigos"),
                                         "description", "Ordenação por data ou identificador.")),
                         "required", List.of("tabela")));
+    }
+
+    private Map<String, Object> declaracaoGerarRelatorio() {
+        return Map.of(
+                "name", "gerar_relatorio_arquivo",
+                "description", "Gera um arquivo CSV ou PDF para download com dados operacionais do banco. Use para pedidos explícitos de exportação. Informe o período inclusivo em datas AAAA-MM-DD e escolha a tabela operacional. A exportação aceita até 31 dias e 5000 linhas.",
+                "parameters", Map.of(
+                        "type", "OBJECT",
+                        "properties", Map.of(
+                                "tabela", Map.of(
+                                        "type", "STRING",
+                                        "enum", List.of("sensor_data", "alertas", "relatorio_diario"),
+                                        "description", "Tabela operacional com data a exportar; use sensor_data para leituras."),
+                                "inicio", Map.of(
+                                        "type", "STRING",
+                                        "description", "Data inicial inclusiva no formato AAAA-MM-DD."),
+                                "fim", Map.of(
+                                        "type", "STRING",
+                                        "description", "Data final inclusiva no formato AAAA-MM-DD."),
+                                "formato", Map.of(
+                                        "type", "STRING",
+                                        "enum", List.of("csv", "pdf"),
+                                        "description", "Formato do arquivo solicitado.")),
+                        "required", List.of("tabela", "inicio", "fim", "formato")));
     }
 
     private List<Map<String, Object>> declaracoesOpenAi() {
@@ -416,10 +487,65 @@ public class ConsultaBotanicaService {
             case "consultar_dados_operacionais_banco" -> consultaBancoLeituraService.consultar(
                     argumentos.path("tabela").asText(""),
                     argumentos.path("termo").asText(""),
+                    dataOpcional(argumentos, "inicio"),
+                    dataOpcional(argumentos, "fim"),
                     quantidade,
                     ordem);
+            case "gerar_relatorio_arquivo" -> gerarLinkRelatorio(argumentos);
             default -> Map.of("erro", "Ferramenta interna não permitida.");
         };
+    }
+
+    private Map<String, Object> gerarLinkRelatorio(JsonNode argumentos) {
+        String tabela = argumentos.path("tabela").asText("sensor_data").toLowerCase(Locale.ROOT);
+        if (!Set.of("sensor_data", "alertas", "relatorio_diario").contains(tabela)) {
+            throw new IllegalArgumentException("Tabela não permitida para exportação.");
+        }
+        LocalDate dataInicio = dataObrigatoria(argumentos, "inicio");
+        LocalDate dataFim = dataObrigatoria(argumentos, "fim");
+        if (dataFim.isBefore(dataInicio)) {
+            throw new IllegalArgumentException("A data final deve ser igual ou posterior à inicial.");
+        }
+        if (dataFim.isAfter(dataInicio.plusDays(30))) {
+            throw new IllegalArgumentException("O intervalo máximo para exportação é de 31 dias.");
+        }
+        String inicio = dataInicio.toString();
+        String fim = dataFim.toString();
+        String formato = argumentos.path("formato").asText("").toLowerCase(Locale.ROOT);
+        if (!Set.of("csv", "pdf").contains(formato)) {
+            throw new IllegalArgumentException("Escolha o formato CSV ou PDF.");
+        }
+
+        String parametros = "tabela=" + codificarUrl(tabela)
+                + "&inicio=" + codificarUrl(inicio)
+                + "&fim=" + codificarUrl(fim)
+                + "&formato=" + codificarUrl(formato);
+        String nome = "estufa_" + tabela + "_" + inicio + "_a_" + fim + "." + formato;
+        return Map.of(
+                "mensagem", "Arquivo pronto para download.",
+                "arquivoUrl", "/api/ia/relatorio?" + parametros,
+                "arquivoNome", nome);
+    }
+
+    private LocalDate dataObrigatoria(JsonNode argumentos, String campo) {
+        String valor = argumentos.path(campo).asText("");
+        if (valor.isBlank()) {
+            throw new IllegalArgumentException("Informe o campo de data " + campo + ".");
+        }
+        try {
+            return LocalDate.parse(valor);
+        } catch (DateTimeParseException erro) {
+            throw new IllegalArgumentException("Use datas no formato AAAA-MM-DD.", erro);
+        }
+    }
+
+    private LocalDate dataOpcional(JsonNode argumentos, String campo) {
+        String valor = argumentos.path(campo).asText("");
+        return valor.isBlank() ? null : dataObrigatoria(argumentos, campo);
+    }
+
+    private String codificarUrl(String valor) {
+        return URLEncoder.encode(valor, StandardCharsets.UTF_8);
     }
 
     private void validarResposta(JsonNode resposta) {
