@@ -29,6 +29,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       doUsuario: false,
     ),
   ];
+  final Set<int> _cadastrosSalvos = {};
   bool _carregando = false;
 
   @override
@@ -56,8 +57,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       return;
     }
 
-    final textoExibido =
-        pergunta.isEmpty ? 'Como cuidar de $planta?' : pergunta;
+    final textoExibido = pergunta.isEmpty
+        ? 'Como cuidar de $planta?'
+        : pergunta;
     setState(() {
       _mensagens.add(_MensagemChat(texto: textoExibido, doUsuario: true));
       _carregando = true;
@@ -111,16 +113,15 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
           'temperaturaAtual': double.tryParse(
             _temperaturaController.text.trim(),
           ),
-          'historico':
-              _mensagens
-                  .take(12)
-                  .map(
-                    (mensagem) => {
-                      'papel': mensagem.doUsuario ? 'usuario' : 'agente',
-                      'texto': mensagem.texto,
-                    },
-                  )
-                  .toList(),
+          'historico': _mensagens
+              .take(12)
+              .map(
+                (mensagem) => {
+                  'papel': mensagem.doUsuario ? 'usuario' : 'agente',
+                  'texto': mensagem.texto,
+                },
+              )
+              .toList(),
         }),
       );
       Map<String, dynamic> dados = {};
@@ -150,13 +151,24 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
               .map((fonte) => fonte['titulo']?.toString())
               .whereType<String>()
               .toList();
-      final complemento =
-          fontes.isEmpty ? '' : '\n\nFontes: ${fontes.join(', ')}.';
+      final complemento = fontes.isEmpty
+          ? ''
+          : '\n\nFontes: ${fontes.join(', ')}.';
       final arquivoPath = dados['arquivoUrl']?.toString();
       Uri? arquivoUri;
       if (arquivoPath != null && arquivoPath.startsWith('/')) {
         arquivoUri = Uri.parse(baseUrl).resolve(arquivoPath);
       }
+      final fontesExternas =
+          (dados['fontes'] is List
+                  ? dados['fontes'] as List
+                  : const <dynamic>[])
+              .whereType<Map>()
+              .map((fonte) => Map<String, dynamic>.from(fonte))
+              .toList();
+      final propostaCadastro = dados['cadastroPendente'] is Map
+          ? Map<String, dynamic>.from(dados['cadastroPendente'] as Map)
+          : null;
       if (mounted) {
         setState(() {
           _mensagens.add(
@@ -165,6 +177,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
               doUsuario: false,
               arquivoUri: arquivoUri,
               arquivoNome: dados['arquivoNome']?.toString(),
+              fontes: fontesExternas,
+              cadastroPendente: propostaCadastro,
             ),
           );
         });
@@ -191,21 +205,20 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   Future<bool> _confirmarFerramenta(FerramentaInterna ferramenta) async {
     return await showDialog<bool>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Confirmar comando'),
-                content: Text(ferramenta.descricaoConfirmacao),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancelar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Confirmar'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Confirmar comando'),
+            content: Text(ferramenta.descricaoConfirmacao),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
               ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
         ) ??
         false;
   }
@@ -234,19 +247,17 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
             itemBuilder: (context, index) {
               final mensagem = _mensagens[index];
               return Align(
-                alignment:
-                    mensagem.doUsuario
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
+                alignment: mensagem.doUsuario
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 340),
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color:
-                        mensagem.doUsuario
-                            ? const Color(0xFF0E7D63)
-                            : Colors.white,
+                    color: mensagem.doUsuario
+                        ? const Color(0xFF0E7D63)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFD4EBDD)),
                   ),
@@ -257,10 +268,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                       Text(
                         mensagem.texto,
                         style: TextStyle(
-                          color:
-                              mensagem.doUsuario
-                                  ? Colors.white
-                                  : const Color(0xFF113128),
+                          color: mensagem.doUsuario
+                              ? Colors.white
+                              : const Color(0xFF113128),
                           height: 1.35,
                         ),
                       ),
@@ -271,6 +281,30 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                           icon: const Icon(Icons.download_outlined),
                           label: Text(
                             'Baixar ${mensagem.arquivoNome ?? 'relatório'}',
+                          ),
+                        ),
+                      ],
+                      if (mensagem.fontes.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        const Text('Fontes externas consultadas:'),
+                        for (final fonte in mensagem.fontes)
+                          TextButton(
+                            onPressed: () =>
+                                _abrirFonte(fonte['url']?.toString()),
+                            child: Text(fonte['titulo']?.toString() ?? 'Fonte'),
+                          ),
+                      ],
+                      if (mensagem.cadastroPendente != null) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _cadastrosSalvos.contains(index)
+                              ? null
+                              : () => _confirmarCadastro(index, mensagem),
+                          icon: const Icon(Icons.local_florist_outlined),
+                          label: Text(
+                            _cadastrosSalvos.contains(index)
+                                ? 'Cultivo cadastrado'
+                                : 'Confirmar cadastro do cultivo',
                           ),
                         ),
                       ],
@@ -364,6 +398,88 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     }
   }
 
+  Future<void> _abrirFonte(String? endereco) async {
+    final uri = Uri.tryParse(endereco ?? '');
+    if (uri == null || !uri.hasScheme) return;
+    final abriu = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!abriu && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir a fonte.')),
+      );
+    }
+  }
+
+  Future<void> _confirmarCadastro(int indice, _MensagemChat mensagem) async {
+    final proposta = mensagem.cadastroPendente;
+    final cultivo = proposta?['cultivo'];
+    if (cultivo is! Map) return;
+    final dadosCultivo = Map<String, dynamic>.from(cultivo);
+    final confirmado =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Cadastrar ${dadosCultivo['nome']}?'),
+            content: Text(
+              'Temperatura: ${dadosCultivo['temperaturaMinima']}–${dadosCultivo['temperaturaMaxima']} °C\n'
+              'Umidade do ar: ${dadosCultivo['umidadeMinima']}–${dadosCultivo['umidadeMaxima']} %\n'
+              'Umidade do solo: ${dadosCultivo['umidadeSoloMinima']}–${dadosCultivo['umidadeSoloMaxima']} %\n\n'
+              'O cultivo será salvo desabilitado. Origem: ${proposta?['origem'] ?? 'não informada'}.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Cadastrar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmado || !mounted) return;
+
+    try {
+      final baseUrl = await ApiSettings.obterUrlApi();
+      final token = await _secureStorage.read(key: 'estufa_jwt');
+      if (!mounted) return;
+      final resposta = await http.post(
+        Uri.parse('$baseUrl/api/cultivos'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(dadosCultivo),
+      );
+      if (resposta.statusCode != 201) {
+        throw Exception(
+          'A API recusou o cadastro (${resposta.statusCode}). ${resposta.body}',
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _cadastrosSalvos.add(indice);
+        _mensagens.add(
+          _MensagemChat(
+            texto: 'Cultivo ${dadosCultivo['nome']} cadastrado desabilitado.',
+            doUsuario: false,
+          ),
+        );
+      });
+      _rolarParaFim();
+    } catch (erro) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(erro.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
+  }
+
   Widget _campo(TextEditingController controller, String label, IconData icon) {
     return TextField(
       controller: controller,
@@ -373,10 +489,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      keyboardType:
-          label == 'Planta'
-              ? TextInputType.text
-              : const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: label == 'Planta'
+          ? TextInputType.text
+          : const TextInputType.numberWithOptions(decimal: true),
     );
   }
 }
@@ -386,11 +501,15 @@ class _MensagemChat {
   final bool doUsuario;
   final Uri? arquivoUri;
   final String? arquivoNome;
+  final List<Map<String, dynamic>> fontes;
+  final Map<String, dynamic>? cadastroPendente;
 
   const _MensagemChat({
     required this.texto,
     required this.doUsuario,
     this.arquivoUri,
     this.arquivoNome,
+    this.fontes = const [],
+    this.cadastroPendente,
   });
 }

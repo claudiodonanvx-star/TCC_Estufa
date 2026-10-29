@@ -6,9 +6,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +42,7 @@ public class ConsultaBotanicaService {
     private static final System.Logger LOGGER =
             System.getLogger(ConsultaBotanicaService.class.getName());
     private static final int MAXIMO_RODADAS_FERRAMENTAS = 8;
+    private static final Pattern NUMERO_PATTERN = Pattern.compile("(?<![\\d])\\d+(?:[.,]\\d+)?(?![\\d])");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8)).build();
@@ -93,8 +97,20 @@ public class ConsultaBotanicaService {
         if (!aiApiKey.isBlank()) {
             ResultadoIA resultadoIA = gerarRelatorioComIA(planta, pergunta, umidadeAtual,
                     temperaturaAtual, analiseLocal, historico);
-            resposta.put("relatorio", resultadoIA.texto());
+            String textoResposta = resultadoIA.texto();
+            if (solicitaCadastro(pergunta)) {
+                textoResposta = resultadoIA.cadastroPendente() == null
+                        ? "Não foi preparado nem salvo um cadastro. Não consegui confirmar todas as faixas "
+                                + "de temperatura, umidade do ar e umidade do solo. Informe os valores ou peça "
+                                + "uma pesquisa externa com fontes verificáveis."
+                        : textoResposta + "\n\nA proposta ainda não foi salva; confirme no botão abaixo.";
+            }
+            resposta.put("relatorio", textoResposta);
             resposta.put("tipo", "agente com ferramentas internas");
+            resposta.put("fontes", resultadoIA.fontes());
+            if (resultadoIA.cadastroPendente() != null) {
+                resposta.put("cadastroPendente", resultadoIA.cadastroPendente());
+            }
             if (resultadoIA.arquivoUrl() != null) {
                 resposta.put("arquivoUrl", resultadoIA.arquivoUrl());
                 resposta.put("arquivoNome", resultadoIA.arquivoNome());
@@ -107,25 +123,51 @@ public class ConsultaBotanicaService {
         return resposta;
     }
 
-    private List<Map<String, String>> buscarFontes(String termo) {
+    private boolean solicitaCadastro(String pergunta) {
+        String texto = normalizarTexto(pergunta);
+        return !texto.startsWith("como ")
+                && (texto.contains("cadastre")
+                        || texto.contains("cadastrar")
+                        || texto.contains("registre")
+                        || texto.contains("registrar")
+                        || texto.contains("adicione")
+                        || texto.contains("adicionar")
+                        || texto.contains("inclua")
+                        || texto.contains("incluir"));
+    }
+
+    private List<Map<String, String>> buscarFontes(String termo) throws Exception {
+        String urlBusca = "https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch="
+                + URLEncoder.encode(termo + " cultivo", StandardCharsets.UTF_8)
+                + "&format=json&utf8=1&srlimit=3";
+        JsonNode busca = objectMapper.readTree(get(urlBusca));
+        List<String> ids = new ArrayList<>();
+        Map<String, String> titulos = new LinkedHashMap<>();
+        for (JsonNode item : busca.path("query").path("search")) {
+            String id = item.path("pageid").asText();
+            ids.add(id);
+            titulos.put(id, item.path("title").asText());
+        }
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        String urlExtratos = "https://pt.wikipedia.org/w/api.php?action=query&pageids="
+                + String.join("|", ids)
+                + "&prop=extracts&exintro=1&explaintext=1&format=json&utf8=1";
+        JsonNode paginas = objectMapper.readTree(get(urlExtratos)).path("query").path("pages");
         List<Map<String, String>> fontes = new ArrayList<>();
-        try {
-            String url = "https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch="
-                    + URLEncoder.encode(termo + " planta cultivo", StandardCharsets.UTF_8)
-                    + "&format=json&utf8=1&srlimit=3";
-            JsonNode busca = objectMapper.readTree(get(url));
-            for (JsonNode item : busca.path("query").path("search")) {
-                String titulo = item.path("title").asText();
+        for (String id : ids) {
+            JsonNode pagina = paginas.path(id);
+            String titulo = titulos.get(id);
+            String extrato = pagina.path("extract").asText("").trim();
+            if (!extrato.isEmpty()) {
                 fontes.add(Map.of(
                         "titulo", titulo,
                         "url", "https://pt.wikipedia.org/wiki/"
                                 + URLEncoder.encode(titulo.replace(' ', '_'), StandardCharsets.UTF_8),
-                        "resumo", limparHtml(item.path("snippet").asText())
-                ));
+                        "resumo", extrato.length() > 4000 ? extrato.substring(0, 4000) : extrato));
             }
-        } catch (Exception erro) {
-            fontes.add(Map.of("titulo", "Busca indisponível", "url", "", "resumo",
-                    "Não foi possível consultar a fonte externa agora."));
         }
         return fontes;
     }
@@ -135,6 +177,10 @@ public class ConsultaBotanicaService {
                                                                                         List<Map<String, String>> historico) {
         try {
             String conversa = objectMapper.writeValueAsString(historico);
+                        String dadosInformadosPeloUsuario = pergunta + " " + historico.stream()
+                                        .filter(mensagem -> "usuario".equalsIgnoreCase(mensagem.get("papel")))
+                                        .map(mensagem -> mensagem.getOrDefault("texto", ""))
+                                        .reduce("", (a, b) -> a + " " + b);
                         String prompt = "Você é o assistente da Estufa Smart. Responda em português, com clareza e objetividade. "
                                         + "O usuário pode perguntar qualquer coisa sobre dados e recursos internos do sistema. "
                                         + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
@@ -142,7 +188,12 @@ public class ConsultaBotanicaService {
                                         + "consultar_dados_operacionais_banco e use os filtros de intervalo quando a pergunta citar datas. "
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
-                                        + "Nunca invente valores, datas, cultivos ou estados. "
+                                        + "Nunca invente valores, datas, cultivos, faixas agronômicas ou estados. "
+                                        + "Para cadastrar uma planta: se o usuário forneceu todas as seis faixas, use a origem usuario; "
+                                        + "se faltarem faixas, pesquise com buscar_fontes_cultivo e use somente valores numéricos "
+                                        + "presentes nos textos retornados. Se as fontes não trouxerem todos os valores, não os estime: "
+                                        + "peça ao usuário os valores ausentes. Prepare o cadastro com preparar_cadastro_cultivo, "
+                                        + "mas nunca diga que foi salvo: o usuário precisa confirmar no botão da aplicação. "
                                         + "As ferramentas consultam somente dados operacionais em modo de leitura; não tente acessar "
                                         + "usuários, clientes, credenciais ou outras tabelas. Se nenhuma ferramenta for necessária, responda normalmente. "
                                         + "A data de hoje é " + LocalDate.now() + ". "
@@ -151,17 +202,23 @@ public class ConsultaBotanicaService {
                                         + ". Análise botânica local disponível: " + analiseLocal
                                         + ". Histórico recente: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                                return gerarComGemini(prompt);
+                                return gerarComGemini(prompt, dadosInformadosPeloUsuario);
             }
-                        return gerarComOpenAi(prompt);
+                        return gerarComOpenAi(prompt, dadosInformadosPeloUsuario);
         } catch (Exception erro) {
                         LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
                         return new ResultadoIA(
-                                "Não consegui concluir a consulta agora. Tente novamente em instantes.", null, null);
+                                "Não consegui concluir a consulta agora. Tente novamente em instantes.",
+                                null, null, null, List.of());
         }
     }
 
-        private record ResultadoIA(String texto, String arquivoUrl, String arquivoNome) {}
+        private record ResultadoIA(
+                String texto,
+                String arquivoUrl,
+                String arquivoNome,
+                Map<String, Object> cadastroPendente,
+                List<Map<String, String>> fontes) {}
 
         private String textoOuFallback(String texto, String fallback) {
                 return texto == null || texto.isBlank()
@@ -213,7 +270,7 @@ public class ConsultaBotanicaService {
                 return "cuidados gerais da planta";
         }
 
-    private ResultadoIA gerarComGemini(String prompt) throws Exception {
+    private ResultadoIA gerarComGemini(String prompt, String dadosInformadosPeloUsuario) throws Exception {
         String endpoint = aiEndpoint.isBlank()
                 ? "https://generativelanguage.googleapis.com/v1beta/models/"
                         + aiModel + ":generateContent?key=" + URLEncoder.encode(aiApiKey, StandardCharsets.UTF_8)
@@ -223,6 +280,8 @@ public class ConsultaBotanicaService {
 
         String arquivoUrl = null;
         String arquivoNome = null;
+        Map<String, Object> cadastroPendente = null;
+        List<Map<String, String>> fontesExternas = new ArrayList<>();
         for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "tools", List.of(Map.of("functionDeclarations", declaracoesGemini())),
@@ -246,14 +305,22 @@ public class ConsultaBotanicaService {
                 return new ResultadoIA(
                         textoOuFallback(texto.toString(), "Não consegui formular uma resposta para a consulta."),
                         arquivoUrl,
-                        arquivoNome);
+                        arquivoNome,
+                        cadastroPendente,
+                        List.copyOf(fontesExternas));
             }
 
             contents.add(objectMapper.convertValue(conteudo, Map.class));
             List<Map<String, Object>> respostasFerramentas = new ArrayList<>();
             for (JsonNode chamada : chamadas) {
                 String nome = chamada.path("name").asText();
-                Map<String, Object> resultado = executarFerramenta(nome, chamada.path("args"));
+                Map<String, Object> resultado = executarFerramenta(
+                        nome, chamada.path("args"), dadosInformadosPeloUsuario, fontesExternas);
+                registrarResultadoFerramenta(nome, resultado, fontesExternas);
+                Object proposta = resultado.get("cadastroPendente");
+                if (proposta instanceof Map<?, ?> mapaProposta) {
+                    cadastroPendente = mapaComoTextoObjeto(mapaProposta);
+                }
                 if (resultado.containsKey("arquivoUrl")) {
                     arquivoUrl = resultado.get("arquivoUrl").toString();
                     arquivoNome = resultado.get("arquivoNome").toString();
@@ -267,16 +334,20 @@ public class ConsultaBotanicaService {
         return new ResultadoIA(
                 "A consulta ainda não foi concluída após várias buscas. Tente pedir uma informação por vez.",
                 arquivoUrl,
-                arquivoNome);
+                arquivoNome,
+                cadastroPendente,
+                List.copyOf(fontesExternas));
     }
 
-    private ResultadoIA gerarComOpenAi(String prompt) throws Exception {
+    private ResultadoIA gerarComOpenAi(String prompt, String dadosInformadosPeloUsuario) throws Exception {
         String endpoint = aiEndpoint.isBlank() ? "https://api.openai.com/v1/chat/completions" : aiEndpoint;
         List<Map<String, Object>> mensagens = new ArrayList<>();
         mensagens.add(Map.of("role", "user", "content", prompt));
 
         String arquivoUrl = null;
         String arquivoNome = null;
+        Map<String, Object> cadastroPendente = null;
+        List<Map<String, String>> fontesExternas = new ArrayList<>();
         for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "model", aiModel,
@@ -294,7 +365,9 @@ public class ConsultaBotanicaService {
                         textoOuFallback(mensagem.path("content").asText(""),
                                 "Não consegui formular uma resposta para a consulta."),
                         arquivoUrl,
-                        arquivoNome);
+                        arquivoNome,
+                        cadastroPendente,
+                        List.copyOf(fontesExternas));
             }
 
             mensagens.add(objectMapper.convertValue(mensagem, Map.class));
@@ -302,7 +375,13 @@ public class ConsultaBotanicaService {
                 String nome = chamada.path("function").path("name").asText();
                 JsonNode argumentos = objectMapper.readTree(
                         chamada.path("function").path("arguments").asText("{}"));
-                Map<String, Object> resultado = executarFerramenta(nome, argumentos);
+                Map<String, Object> resultado = executarFerramenta(
+                        nome, argumentos, dadosInformadosPeloUsuario, fontesExternas);
+                registrarResultadoFerramenta(nome, resultado, fontesExternas);
+                Object proposta = resultado.get("cadastroPendente");
+                if (proposta instanceof Map<?, ?> mapaProposta) {
+                    cadastroPendente = mapaComoTextoObjeto(mapaProposta);
+                }
                 if (resultado.containsKey("arquivoUrl")) {
                     arquivoUrl = resultado.get("arquivoUrl").toString();
                     arquivoNome = resultado.get("arquivoNome").toString();
@@ -316,7 +395,9 @@ public class ConsultaBotanicaService {
         return new ResultadoIA(
                 "A consulta ainda não foi concluída após várias buscas. Tente pedir uma informação por vez.",
                 arquivoUrl,
-                arquivoNome);
+                arquivoNome,
+                cadastroPendente,
+                List.copyOf(fontesExternas));
     }
 
     private List<Map<String, Object>> declaracoesGemini() {
@@ -330,7 +411,42 @@ public class ConsultaBotanicaService {
                 declaracao("consultar_relatorios", "Consulta os relatórios diários mais recentes.", true),
                 declaracao("consultar_estado_atuadores", "Consulta o modo e o estado atual dos atuadores.", true),
                 declaracaoConsultaBanco(),
-                declaracaoGerarRelatorio());
+                declaracaoGerarRelatorio(),
+                declaracaoBuscaCultivo(),
+                declaracaoPrepararCadastroCultivo());
+    }
+
+    private Map<String, Object> declaracaoBuscaCultivo() {
+        return Map.of(
+                "name", "buscar_fontes_cultivo",
+                "description", "Pesquisa páginas externas da Wikipédia e retorna trechos reais com links. Use antes de sugerir faixas não fornecidas pelo usuário. Não invente valores que não estejam nos trechos.",
+                "parameters", Map.of(
+                        "type", "OBJECT",
+                        "properties", Map.of(
+                                "termo", Map.of("type", "STRING",
+                                        "description", "Nome científico ou comum do cultivo a pesquisar.")),
+                        "required", List.of("termo")));
+    }
+
+    private Map<String, Object> declaracaoPrepararCadastroCultivo() {
+        return Map.of(
+                "name", "preparar_cadastro_cultivo",
+                "description", "Prepara uma proposta de cadastro, sem gravar no banco. Use somente se os seis limites foram informados pelo usuário ou podem ser verificados nos trechos externos pesquisados nesta conversa. Cadastro só é salvo após confirmação explícita do usuário na aplicação.",
+                "parameters", Map.of(
+                        "type", "OBJECT",
+                        "properties", Map.of(
+                                "nome", Map.of("type", "STRING", "description", "Nome do cultivo."),
+                                "tipo", Map.of("type", "STRING", "description", "Tipo/categoria da planta."),
+                                "temperaturaMinima", Map.of("type", "NUMBER"),
+                                "temperaturaMaxima", Map.of("type", "NUMBER"),
+                                "umidadeMinima", Map.of("type", "NUMBER"),
+                                "umidadeMaxima", Map.of("type", "NUMBER"),
+                                "umidadeSoloMinima", Map.of("type", "NUMBER"),
+                                "umidadeSoloMaxima", Map.of("type", "NUMBER"),
+                                "origem", Map.of("type", "STRING", "enum", List.of("usuario", "externa"))),
+                        "required", List.of("nome", "tipo", "temperaturaMinima", "temperaturaMaxima",
+                                "umidadeMinima", "umidadeMaxima", "umidadeSoloMinima",
+                                "umidadeSoloMaxima", "origem")));
     }
 
     private Map<String, Object> declaracaoConsultaBanco() {
@@ -429,7 +545,11 @@ public class ConsultaBotanicaService {
         return Map.of("name", nome, "description", descricao, "parameters", parametros);
     }
 
-    private Map<String, Object> executarFerramenta(String nome, JsonNode argumentos) {
+    private Map<String, Object> executarFerramenta(
+            String nome,
+            JsonNode argumentos,
+            String dadosInformadosPeloUsuario,
+            List<Map<String, String>> fontesExternas) throws Exception {
         int quantidade = Math.max(1, Math.min(50, argumentos.path("quantidade").asInt(1)));
         String ordem = argumentos.path("ordem").asText("recentes");
         return switch (nome) {
@@ -492,8 +612,142 @@ public class ConsultaBotanicaService {
                     quantidade,
                     ordem);
             case "gerar_relatorio_arquivo" -> gerarLinkRelatorio(argumentos);
+            case "buscar_fontes_cultivo" -> {
+                String termo = argumentos.path("termo").asText("").trim();
+                List<Map<String, String>> fontes = buscarFontes(termo).stream()
+                        .map(fonte -> {
+                            Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
+                            fonteComTermo.put("termoBusca", termo);
+                            return fonteComTermo;
+                        })
+                        .toList();
+                yield Map.of("fontes", fontes);
+            }
+            case "preparar_cadastro_cultivo" -> prepararCadastroCultivo(
+                    argumentos, dadosInformadosPeloUsuario, fontesExternas);
             default -> Map.of("erro", "Ferramenta interna não permitida.");
         };
+    }
+
+    Map<String, Object> prepararCadastroCultivo(
+            JsonNode argumentos,
+            String dadosInformadosPeloUsuario,
+            List<Map<String, String>> fontesExternas) {
+        String nome = argumentos.path("nome").asText("").trim();
+        String tipo = argumentos.path("tipo").asText("").trim();
+        String origem = argumentos.path("origem").asText("");
+        if (nome.isBlank() || tipo.isBlank()) {
+            return Map.of("erro", "Informe o nome e o tipo do cultivo.");
+        }
+
+        Map<String, Double> faixas = new LinkedHashMap<>();
+        for (String campo : List.of(
+                "temperaturaMinima", "temperaturaMaxima", "umidadeMinima",
+                "umidadeMaxima", "umidadeSoloMinima", "umidadeSoloMaxima")) {
+            double valor = argumentos.path(campo).asDouble(Double.NaN);
+            if (!Double.isFinite(valor)) {
+                return Map.of("erro", "Faltam valores numéricos completos para as seis faixas.");
+            }
+            faixas.put(campo, valor);
+        }
+        if (faixas.get("temperaturaMinima") < 0
+                || faixas.get("temperaturaMaxima") < faixas.get("temperaturaMinima")
+                || faixas.get("umidadeMinima") < 0 || faixas.get("umidadeMaxima") > 100
+                || faixas.get("umidadeMaxima") < faixas.get("umidadeMinima")
+                || faixas.get("umidadeSoloMinima") < 0 || faixas.get("umidadeSoloMaxima") > 100
+                || faixas.get("umidadeSoloMaxima") < faixas.get("umidadeSoloMinima")) {
+            return Map.of("erro", "As faixas são inválidas; confira mínimos, máximos e percentuais entre 0 e 100.");
+        }
+        boolean valoresDoUsuario = "usuario".equalsIgnoreCase(origem)
+                && faixas.values().stream().allMatch(valor -> contémNumero(dadosInformadosPeloUsuario, valor));
+        List<Map<String, String>> fontesDoCultivo = fontesExternas.stream()
+                .filter(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), nome))
+                .toList();
+        boolean valoresDeFonte = "externa".equalsIgnoreCase(origem)
+                && !fontesDoCultivo.isEmpty()
+                && faixas.values().stream().allMatch(valor -> fontesExternas.stream()
+                        .anyMatch(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), nome)
+                                && contémNumero(fonte.get("resumo"), valor)));
+        if (!valoresDoUsuario && !valoresDeFonte) {
+            return Map.of("erro", "Não consegui verificar todas as faixas na mensagem do usuário ou nas fontes consultadas. "
+                    + "Não vou preparar um cadastro com valores estimados; informe os valores ausentes.");
+        }
+        boolean duplicado = cultivoRepository.findAll().stream()
+                .anyMatch(cultivo -> cultivo.getNome().equalsIgnoreCase(nome));
+        if (duplicado) {
+            return Map.of("erro", "Já existe um cultivo cadastrado com esse nome.");
+        }
+
+        Map<String, Object> cultivo = new LinkedHashMap<>();
+        cultivo.put("nome", nome);
+        cultivo.put("tipo", tipo);
+        faixas.forEach(cultivo::put);
+        cultivo.put("habilitada", false);
+        Map<String, Object> proposta = new LinkedHashMap<>();
+        proposta.put("cultivo", cultivo);
+        proposta.put("origem", valoresDoUsuario ? "valores informados por você" : "valores encontrados nas fontes");
+        proposta.put("fontes", valoresDeFonte ? fontesDoCultivo : List.of());
+        return Map.of("cadastroPendente", proposta);
+    }
+
+    private boolean buscaCorrespondeAoCultivo(String termo, String nome) {
+        String termoNormalizado = normalizarTexto(termo);
+        String nomeNormalizado = normalizarTexto(nome);
+        return !termoNormalizado.isBlank()
+                && !nomeNormalizado.isBlank()
+                && java.util.Arrays.stream(nomeNormalizado.split("\\s+"))
+                        .filter(palavra -> palavra.length() > 2)
+                        .anyMatch(termoNormalizado::contains);
+    }
+
+    private Map<String, Object> mapaComoTextoObjeto(Map<?, ?> mapa) {
+        Map<String, Object> convertido = new LinkedHashMap<>();
+        mapa.forEach((chave, valor) -> convertido.put(String.valueOf(chave), valor));
+        return convertido;
+    }
+
+    private String normalizarTexto(String texto) {
+        return Normalizer.normalize(texto == null ? "" : texto, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private boolean contémNumero(String texto, double esperado) {
+        if (texto == null || texto.isBlank()) {
+            return false;
+        }
+        Matcher matcher = NUMERO_PATTERN.matcher(texto);
+        while (matcher.find()) {
+            try {
+                double encontrado = Double.parseDouble(matcher.group().replace(',', '.'));
+                if (Math.abs(encontrado - esperado) < 0.0001) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore non-numeric fragments matched in free-form source text.
+            }
+        }
+        return false;
+    }
+
+    private void registrarResultadoFerramenta(
+            String nome,
+            Map<String, Object> resultado,
+            List<Map<String, String>> fontesExternas) {
+        if (!"buscar_fontes_cultivo".equals(nome)) {
+            return;
+        }
+        Object fontes = resultado.get("fontes");
+        if (fontes instanceof List<?> lista) {
+            for (Object fonte : lista) {
+                if (fonte instanceof Map<?, ?> mapa) {
+                    Map<String, String> fonteTexto = new LinkedHashMap<>();
+                    mapa.forEach((chave, valor) -> fonteTexto.put(
+                            String.valueOf(chave), String.valueOf(valor)));
+                    fontesExternas.add(fonteTexto);
+                }
+            }
+        }
     }
 
     private Map<String, Object> gerarLinkRelatorio(JsonNode argumentos) {
@@ -557,8 +811,16 @@ public class ConsultaBotanicaService {
 
     private String get(String url) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(10)).header("Accept", "application/json").GET().build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString()).body();
+                .timeout(Duration.ofSeconds(10))
+                .header("Accept", "application/json")
+                .header("User-Agent", "EstufaSmart/1.0 (cultivation source lookup)")
+                .GET()
+                .build();
+        HttpResponse<String> resposta = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (resposta.statusCode() < 200 || resposta.statusCode() >= 300) {
+            throw new IllegalStateException("A busca externa respondeu HTTP " + resposta.statusCode() + ".");
+        }
+        return resposta.body();
     }
 
         private String post(String url, String body, String authorization) throws Exception {

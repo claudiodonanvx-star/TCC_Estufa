@@ -44,7 +44,7 @@ O endpoint recebe, por exemplo:
 }
 ```
 
-Ele busca fontes públicas na Wikipedia, combina a informação com a leitura da estufa e retorna um relatório. Para gerar texto narrativo por um modelo de IA, configure `AI_API_KEY` no Render. Também é possível trocar `AI_ENDPOINT` e `AI_MODEL` por um provedor compatível com a API OpenAI. Sem essa chave, o sistema continua funcionando com fontes e análise local, mas não deve ser apresentado como IA generativa.
+O agente só consulta a Wikipedia quando aciona a ferramenta externa; nesse caso, a resposta inclui os links efetivamente consultados. Sem chamada da ferramenta, não deve afirmar que fez pesquisa externa. Para gerar texto narrativo por um modelo de IA, configure `AI_API_KEY` no Render. Também é possível trocar `AI_ENDPOINT` e `AI_MODEL` por um provedor compatível com a API OpenAI.
 
 ## IA explicável
 
@@ -57,6 +57,8 @@ Além das ferramentas de consulta específicas, o agente pode executar buscas so
 Como a resposta da ferramenta é enviada ao provedor de IA configurado, mantenha nessa lista apenas dados operacionais que podem ser compartilhados com esse provedor.
 
 Para pedir um arquivo pelo chat, solicite um relatório CSV ou PDF e informe o período. O agente gera um link de download dos dados operacionais selecionados; exportações aceitam até 31 dias e 5.000 registros. A consulta em linguagem natural suporta até oito rodadas de ferramentas por pergunta.
+
+Para cadastrar um cultivo pelo chat, informe o nome e as faixas mínima e máxima de temperatura, umidade do ar e umidade do solo. Se os valores não forem informados, o agente pode pesquisar páginas da Wikipedia e propor valores somente quando os números estiverem presentes nos trechos retornados. A proposta exibe os links consultados e não é salva até a confirmação explícita no chat. Cultivos criados pelo chat permanecem desabilitados; habilitá-los é uma ação separada. Se as fontes não trouxerem todas as seis faixas, o agente deve pedir os valores faltantes em vez de estimá-los.
 
 ## Segurança e sincronização
 
