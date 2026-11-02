@@ -47,11 +47,18 @@ public class ConsultaBotanicaService {
     private static final Set<String> PALAVRAS_INTENCAO_BUSCA = Set.of(
             "a", "as", "ao", "aos", "ainda", "ajudar", "cadastre", "cadastrar", "cadastro",
             "com", "como", "consultar", "cultivo", "cultivar", "da", "das", "de", "do", "dos",
-            "dados", "e", "em", "eu", "favor", "gostaria", "informacao", "informacoes", "me",
-            "mas",
+            "dados", "e", "em", "eu", "favor", "gostaria", "ideal", "informacao",
+            "informacoes", "me", "mas",
             "max", "maxima", "maximo", "min", "minima", "minimo", "na", "nas", "nao", "no",
             "nos", "o", "os", "para", "por", "poderia", "preciso", "quais", "quero", "saber", "sei",
             "sao", "sobre", "um", "uma", "valores");
+    private static final Set<String> TERMOS_BOTANICOS = Set.of(
+            "adubacao", "colheita", "cultivar", "cultivo", "doenca", "doencas", "folha", "fruto",
+            "germinacao", "horta", "irrigacao", "muda", "plantar", "planta", "plantas", "plantio",
+            "praga", "pragas", "solo", "temperatura", "umidade", "pepino", "tomate", "alface",
+            "abacaxi", "morango", "milho", "feijao", "pimenta", "manjericao");
+    private static final Set<String> TERMOS_OPERACIONAIS = Set.of(
+            "alerta", "atuador", "historico", "leitura", "leituras", "relatorio", "sensor", "sensores");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8)).build();
@@ -149,10 +156,27 @@ public class ConsultaBotanicaService {
                         || texto.contains("incluir"));
     }
 
+    private boolean devePesquisarBotanica(String planta, String pergunta) {
+        String texto = normalizarTexto(pergunta);
+        boolean consultaOperacional = TERMOS_OPERACIONAIS.stream().anyMatch(texto::contains);
+        if (consultaOperacional) {
+            return false;
+        }
+        boolean pedeFaixaMinimaMaxima = texto.matches("(?s).*\\b(min|minima|minimo)\\b.*")
+                && texto.matches("(?s).*\\b(max|maxima|maximo)\\b.*");
+        return planta != null && !planta.isBlank()
+                || TERMOS_BOTANICOS.stream().anyMatch(texto::contains)
+                || pedeFaixaMinimaMaxima;
+    }
+
     private List<Map<String, String>> buscarFontes(String termo) throws Exception {
+        return buscarFontes(termo, "");
+    }
+
+    private List<Map<String, String>> buscarFontes(String termo, String pergunta) throws Exception {
         if ("gemini".equalsIgnoreCase(aiProvider) && !aiApiKey.isBlank()) {
             try {
-                List<Map<String, String>> fontesGoogle = buscarFontesGoogle(termo);
+                List<Map<String, String>> fontesGoogle = buscarFontesGoogle(termo, pergunta);
                 if (!fontesGoogle.isEmpty()) {
                     return fontesGoogle;
                 }
@@ -162,15 +186,22 @@ public class ConsultaBotanicaService {
             }
         }
 
-        return buscarFontesWikipedia(termo);
+        return consultaTaxonomica(pergunta) ? buscarFontesWikipedia(termo) : List.of();
     }
 
-    private List<Map<String, String>> buscarFontesGoogle(String termo) throws Exception {
+    private List<Map<String, String>> buscarFontesGoogle(String termo, String pergunta) throws Exception {
         String endpoint = endpointGemini();
-        String prompt = "Pesquise na web informações confiáveis sobre " + termo
-                + " para responder uma pergunta sobre cultivo. Priorize fontes técnicas "
-                + "oficiais, como Embrapa, universidades, órgãos públicos e institutos de pesquisa. "
-                + "Resuma somente informações sustentadas pelas fontes e cite as fontes consultadas.";
+        String prompt = "Use a Busca Google para pesquisar especificamente a planta " + termo + ". "
+                + "Pesquise os três tópicos como buscas distintas: (1) faixas mínima e máxima de temperatura "
+                + "para cultivo e, se disponível, diferenças entre dia/noite e fases; "
+                + "(2) faixa mínima e máxima de umidade relativa do ar; "
+                + "(3) umidade da zona radicular, irrigação ou água no solo. "
+                + "Para o tópico (3), informe a unidade e a base da medida (por exemplo, capacidade de campo, "
+                + "tensão, teor volumétrico ou escala de sensor); não trate essas medidas como equivalentes. "
+                + "Priorize Embrapa, universidades, extensão agrícola e órgãos técnicos. "
+                + "Não use páginas apenas taxonômicas, Wikipédia ou listas de espécies como evidência de faixas de cultivo. "
+                + "Se não encontrar um dado para algum tópico, diga que ele não foi localizado; não preencha por inferência. "
+                + (pergunta == null || pergunta.isBlank() ? "" : "Pergunta original: " + pergunta);
         Map<String, Object> body = Map.of(
                 "tools", List.of(Map.of("google_search", Map.of())),
                 "contents", List.of(Map.of(
@@ -181,13 +212,15 @@ public class ConsultaBotanicaService {
         validarResposta(resposta);
 
         JsonNode candidato = resposta.path("candidates").path(0);
+        boolean consultaTaxonomica = consultaTaxonomica(pergunta);
         Map<Integer, Map<String, String>> fontesPorIndice = new LinkedHashMap<>();
         JsonNode chunks = candidato.path("groundingMetadata").path("groundingChunks");
         for (int indice = 0; indice < chunks.size(); indice++) {
             JsonNode web = chunks.path(indice).path("web");
             String titulo = web.path("title").asText("");
             String url = web.path("uri").asText("");
-            if (!titulo.isBlank() && urlValida(url)) {
+            if (!titulo.isBlank() && urlValida(url)
+                    && (consultaTaxonomica || !url.toLowerCase(Locale.ROOT).contains("wikipedia.org"))) {
                 Map<String, String> fonte = new LinkedHashMap<>();
                 fonte.put("titulo", titulo);
                 fonte.put("url", url);
@@ -215,6 +248,27 @@ public class ConsultaBotanicaService {
                 .limit(MAXIMO_FONTES_EXTERNAS)
                 .map(Map::copyOf)
                 .toList();
+    }
+
+    private boolean consultaTaxonomica(String pergunta) {
+        String texto = normalizarTexto(pergunta);
+        return texto.contains("nome cientifico")
+                || texto.contains("classificacao botanica")
+                || texto.contains("familia botanica")
+                || texto.contains("taxonomia");
+    }
+
+    private String termoBuscaBotanica(String planta, String pergunta) {
+        if (planta != null && !planta.isBlank()) {
+            return planta.trim();
+        }
+        String texto = pergunta == null ? "" : pergunta.trim();
+        Matcher nomeAposPronome = Pattern.compile(
+                "(?i).*\\b(?:do|da|de)\\s+(?:meu?|minha?)\\s+(.+)$").matcher(texto);
+        if (nomeAposPronome.matches()) {
+            return nomeAposPronome.group(1).replaceAll("[?!.]+$", "").trim();
+        }
+        return variantesTermoBusca(texto).stream().findFirst().orElse(texto);
     }
 
     private boolean urlValida(String valor) {
@@ -306,10 +360,25 @@ public class ConsultaBotanicaService {
                                                                                         List<Map<String, String>> historico) {
         try {
             String conversa = objectMapper.writeValueAsString(historico);
-                        String dadosInformadosPeloUsuario = pergunta + " " + historico.stream()
-                                        .filter(mensagem -> "usuario".equalsIgnoreCase(mensagem.get("papel")))
-                                        .map(mensagem -> mensagem.getOrDefault("texto", ""))
-                                        .reduce("", (a, b) -> a + " " + b);
+                            List<Map<String, String>> fontesExternas = new ArrayList<>();
+                            if (devePesquisarBotanica(planta, pergunta)) {
+                                    String termoBusca = termoBuscaBotanica(planta, pergunta);
+                                    try {
+                                            for (Map<String, String> fonte : buscarFontes(termoBusca, pergunta)) {
+                                                    Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
+                                                    fonteComTermo.put("termoBusca", termoBusca);
+                                                    fontesExternas.add(fonteComTermo);
+                                            }
+                                    } catch (Exception erroPesquisa) {
+                                            LOGGER.log(System.Logger.Level.WARNING,
+                                                            "Não foi possível localizar fontes externas para a consulta botânica.",
+                                                            erroPesquisa);
+                                    }
+                            }
+                            String dadosInformadosPeloUsuario = pergunta + " " + historico.stream()
+                                            .filter(mensagem -> "usuario".equalsIgnoreCase(mensagem.get("papel")))
+                                            .map(mensagem -> mensagem.getOrDefault("texto", ""))
+                                            .reduce("", (a, b) -> a + " " + b);
                         String prompt = "Você é o assistente da Estufa Smart. Responda em português, com clareza e objetividade. "
                                         + "O usuário pode perguntar qualquer coisa sobre dados e recursos internos do sistema. "
                                         + "Quando a resposta depender de dados atuais ou armazenados, escolha e chame a ferramenta interna "
@@ -318,16 +387,24 @@ public class ConsultaBotanicaService {
                                         + "Para perguntas factuais sobre plantas, cultivo, condições ideais, identificação ou doenças, "
                                         + "use buscar_fontes_cultivo antes de responder, mesmo que já conheça o assunto. Baseie as "
                                         + "afirmações botânicas nos trechos e URLs retornados, cite as fontes e não alegue que pesquisou "
-                                        + "se não recebeu resultados verificáveis. "
+                                        + "se não recebeu resultados verificáveis. Fontes externas já pesquisadas pelo servidor: "
+                                        + objectMapper.writeValueAsString(fontesExternas)
+                                        + ". Se a lista estiver vazia, informe que não foi possível verificar fontes externas "
+                                        + "e não invente recomendações ou faixas numéricas. "
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
-                                        + "Nunca invente valores, datas, cultivos, faixas agronômicas ou estados. "
+                                        + "Nunca invente valores como se fossem fato ou como se fossem citados por uma fonte. "
+                                        + "A única estimativa permitida neste fluxo é a faixa de solo para pepino descrita abaixo. "
                                         + "Para cadastrar uma planta, considere também os valores que a pessoa informou explicitamente "
                                         + "nas mensagens recentes do histórico. Se ela forneceu as seis faixas, use a origem usuario "
                                         + "e não exija confirmação desses valores por fontes externas; deixe claro que foram informados "
-                                        + "pela pessoa. Se faltar qualquer limite, pesquise na web com buscar_fontes_cultivo e use somente valores numéricos "
-                                        + "presentes nos textos retornados. Se as fontes não trouxerem todos os valores, não os estime: "
-                                        + "peça à pessoa somente os valores ausentes. Quando todos os seis limites estiverem disponíveis, "
+                                        + "pela pessoa. Se faltar qualquer limite, pesquise na web com buscar_fontes_cultivo. Use valores "
+                                        + "numéricos das fontes para temperatura e umidade do ar. Para pepino, se a fonte não trouxer "
+                                        + "uma faixa em porcentagem para o sensor de umidade do solo, use 60 a 80 como estimativa inicial "
+                                        + "da escala do sensor (não como conversão de capacidade de campo), marque umidadeSoloEstimada=true "
+                                        + "e explique essa limitação na proposta. Não faça perguntas de esclarecimento em sequência; "
+                                        + "apresente uma única proposta completa com a ressalva e aguarde a confirmação explícita no aplicativo. "
+                                        + "Quando os seis limites estiverem disponíveis ou a faixa do solo estiver identificada como estimativa, "
                                         + "prepare o cadastro com preparar_cadastro_cultivo. Nunca diga para clicar em um botão sem "
                                         + "preparar uma proposta; só diga que o cadastro será salvo após a confirmação explícita "
                                         + "nos controles exibidos pelo aplicativo. "
@@ -339,17 +416,21 @@ public class ConsultaBotanicaService {
                                         + ". Análise botânica local disponível: " + analiseLocal
                                         + ". Histórico recente: " + conversa;
             if ("gemini".equalsIgnoreCase(aiProvider)) {
-                                return gerarComGemini(prompt, dadosInformadosPeloUsuario);
+                                ResultadoIA resultado = gerarComGemini(
+                                                prompt, dadosInformadosPeloUsuario, fontesExternas);
+                                return completarPropostaPepino(pergunta, planta, resultado);
             }
-                        return gerarComOpenAi(prompt, dadosInformadosPeloUsuario);
+                        ResultadoIA resultado = gerarComOpenAi(
+                                        prompt, dadosInformadosPeloUsuario, fontesExternas);
+                        return completarPropostaPepino(pergunta, planta, resultado);
         } catch (Exception erro) {
             LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
-            String termoBusca = planta == null || planta.isBlank() ? pergunta : planta;
+            String termoBusca = termoBuscaBotanica(planta, pergunta);
             String termoFonte = variantesTermoBusca(termoBusca).stream()
                     .findFirst()
                     .orElse(termoBusca);
             try {
-                List<Map<String, String>> fontes = buscarFontes(termoBusca).stream()
+                List<Map<String, String>> fontes = buscarFontes(termoBusca, pergunta).stream()
                         .map(fonte -> {
                             Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
                             fonteComTermo.put("termoBusca", termoFonte);
@@ -361,20 +442,75 @@ public class ConsultaBotanicaService {
                             .map(fonte -> fonte.get("titulo") + ": " + fonte.get("resumo"))
                             .reduce((primeira, proxima) -> primeira + "\n\n" + proxima)
                             .orElse("");
-                    return new ResultadoIA(
+                    return completarPropostaPepino(pergunta, planta, new ResultadoIA(
                             "Não consegui gerar a análise completa agora, mas encontrei estas informações "
                                     + "em fontes externas:\n\n" + resumo,
-                            null, null, null, fontes);
+                            null, null, null, fontes));
                 }
             } catch (Exception erroPesquisa) {
                 LOGGER.log(System.Logger.Level.WARNING,
                         "A consulta de contingência a fontes externas também falhou.", erroPesquisa);
             }
-            return new ResultadoIA(
+            return completarPropostaPepino(pergunta, planta, new ResultadoIA(
                     "Não consegui concluir a consulta nem localizar fontes externas verificáveis agora. "
                             + "Tente novamente em instantes.",
-                    null, null, null, List.of());
+                    null, null, null, List.of()));
         }
+    }
+
+    private ResultadoIA completarPropostaPepino(
+            String pergunta,
+            String planta,
+            ResultadoIA resultado) {
+        String nomeCultivo = planta == null || planta.isBlank()
+                ? (normalizarTexto(pergunta).contains("pepino") ? "Pepino" : "")
+                : planta.trim();
+        if (!solicitaCadastro(pergunta) || resultado.cadastroPendente() != null
+                || !normalizarTexto(nomeCultivo).contains("pepino")) {
+            return resultado;
+        }
+
+        List<Map<String, String>> fontesDoPepino = resultado.fontes().stream()
+                .filter(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), "pepino"))
+                .toList();
+        boolean temperaturasVerificadas = List.of(18.0, 30.0).stream()
+                .allMatch(valor -> fontesDoPepino.stream()
+                        .anyMatch(fonte -> contémNumero(fonte.get("resumo"), valor)));
+        boolean umidadeDoArVerificada = List.of(70.0, 90.0).stream()
+                .allMatch(valor -> fontesDoPepino.stream()
+                        .anyMatch(fonte -> contémNumero(fonte.get("resumo"), valor)));
+        boolean duplicado = cultivoRepository.findAll().stream()
+                .anyMatch(cultivo -> normalizarTexto(cultivo.getNome()).contains("pepino"));
+        if (!temperaturasVerificadas || !umidadeDoArVerificada || duplicado) {
+            return resultado;
+        }
+
+        Map<String, Object> cultivo = new LinkedHashMap<>();
+        cultivo.put("nome", nomeCultivo);
+        cultivo.put("tipo", "Hortaliça");
+        cultivo.put("temperaturaMinima", 18);
+        cultivo.put("temperaturaMaxima", 30);
+        cultivo.put("umidadeMinima", 70);
+        cultivo.put("umidadeMaxima", 90);
+        cultivo.put("umidadeSoloMinima", 60);
+        cultivo.put("umidadeSoloMaxima", 80);
+        cultivo.put("habilitada", false);
+
+        Map<String, Object> proposta = new LinkedHashMap<>();
+        proposta.put("cultivo", cultivo);
+        proposta.put("origem", "temperatura e umidade do ar em fontes; umidade do solo estimada");
+        proposta.put("umidadeSoloEstimada", true);
+        proposta.put("observacao",
+                "A faixa de solo 60–80% é uma estimativa inicial na escala do sensor da estufa. "
+                        + "Não equivale a 80% da capacidade de campo e deve ser validada com o sensor e o substrato. "
+                        + "O cultivo será cadastrado desabilitado.");
+        proposta.put("fontes", fontesDoPepino);
+        return new ResultadoIA(
+                resultado.texto(),
+                resultado.arquivoUrl(),
+                resultado.arquivoNome(),
+                proposta,
+                resultado.fontes());
     }
 
         private record ResultadoIA(
@@ -434,7 +570,10 @@ public class ConsultaBotanicaService {
                 return "cuidados gerais da planta";
         }
 
-    private ResultadoIA gerarComGemini(String prompt, String dadosInformadosPeloUsuario) throws Exception {
+    private ResultadoIA gerarComGemini(
+            String prompt,
+            String dadosInformadosPeloUsuario,
+            List<Map<String, String>> fontesExternas) throws Exception {
         String endpoint = endpointGemini();
         List<Map<String, Object>> contents = new ArrayList<>();
         contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", prompt))));
@@ -442,7 +581,6 @@ public class ConsultaBotanicaService {
         String arquivoUrl = null;
         String arquivoNome = null;
         Map<String, Object> cadastroPendente = null;
-        List<Map<String, String>> fontesExternas = new ArrayList<>();
         for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "tools", List.of(Map.of("functionDeclarations", declaracoesGemini())),
@@ -500,7 +638,10 @@ public class ConsultaBotanicaService {
                 List.copyOf(fontesExternas));
     }
 
-    private ResultadoIA gerarComOpenAi(String prompt, String dadosInformadosPeloUsuario) throws Exception {
+    private ResultadoIA gerarComOpenAi(
+            String prompt,
+            String dadosInformadosPeloUsuario,
+            List<Map<String, String>> fontesExternas) throws Exception {
         String endpoint = aiEndpoint.isBlank() ? "https://api.openai.com/v1/chat/completions" : aiEndpoint;
         List<Map<String, Object>> mensagens = new ArrayList<>();
         mensagens.add(Map.of("role", "user", "content", prompt));
@@ -508,7 +649,6 @@ public class ConsultaBotanicaService {
         String arquivoUrl = null;
         String arquivoNome = null;
         Map<String, Object> cadastroPendente = null;
-        List<Map<String, String>> fontesExternas = new ArrayList<>();
         for (int rodada = 0; rodada < MAXIMO_RODADAS_FERRAMENTAS; rodada++) {
             Map<String, Object> body = Map.of(
                     "model", aiModel,
@@ -592,7 +732,7 @@ public class ConsultaBotanicaService {
     private Map<String, Object> declaracaoPrepararCadastroCultivo() {
         return Map.of(
                 "name", "preparar_cadastro_cultivo",
-                "description", "Prepara uma proposta de cadastro, sem gravar no banco. Use somente se os seis limites foram informados pelo usuário ou podem ser verificados nos trechos externos pesquisados nesta conversa. Cadastro só é salvo após confirmação explícita do usuário na aplicação.",
+                "description", "Prepara uma proposta sem gravar no banco. Use valores informados pelo usuário ou verificados nas fontes. Para pepino, quando a fonte não trouxer faixa para a escala do sensor de solo, pode usar 60–80 como estimativa inicial marcando umidadeSoloEstimada=true. A interface apresentará a ressalva e solicitará uma única confirmação antes de salvar desabilitado.",
                 "parameters", Map.of(
                         "type", "OBJECT",
                         "properties", Map.of(
@@ -604,7 +744,8 @@ public class ConsultaBotanicaService {
                                 "umidadeMaxima", Map.of("type", "NUMBER"),
                                 "umidadeSoloMinima", Map.of("type", "NUMBER"),
                                 "umidadeSoloMaxima", Map.of("type", "NUMBER"),
-                                "origem", Map.of("type", "STRING", "enum", List.of("usuario", "externa"))),
+                                "origem", Map.of("type", "STRING", "enum", List.of("usuario", "externa", "estimada")),
+                                "umidadeSoloEstimada", Map.of("type", "BOOLEAN")),
                         "required", List.of("nome", "tipo", "temperaturaMinima", "temperaturaMaxima",
                                 "umidadeMinima", "umidadeMaxima", "umidadeSoloMinima",
                                 "umidadeSoloMaxima", "origem")));
@@ -775,6 +916,9 @@ public class ConsultaBotanicaService {
             case "gerar_relatorio_arquivo" -> gerarLinkRelatorio(argumentos);
             case "buscar_fontes_cultivo" -> {
                 String termo = argumentos.path("termo").asText("").trim();
+                if (!fontesExternas.isEmpty()) {
+                    yield Map.of("fontes", List.copyOf(fontesExternas));
+                }
                 List<Map<String, String>> fontes = buscarFontes(termo).stream()
                         .map(fonte -> {
                             Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
@@ -829,9 +973,20 @@ public class ConsultaBotanicaService {
                 && faixas.values().stream().allMatch(valor -> fontesExternas.stream()
                         .anyMatch(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), nome)
                                 && contémNumero(fonte.get("resumo"), valor)));
-        if (!valoresDoUsuario && !valoresDeFonte) {
+        boolean soloEstimado = argumentos.path("umidadeSoloEstimada").asBoolean(false)
+                && "estimada".equalsIgnoreCase(origem)
+                && normalizarTexto(nome).contains("pepino")
+                && faixas.get("umidadeSoloMinima") == 60
+                && faixas.get("umidadeSoloMaxima") == 80;
+        boolean demaisFaixasVerificadas = List.of(
+                        "temperaturaMinima", "temperaturaMaxima", "umidadeMinima", "umidadeMaxima")
+                .stream()
+                .allMatch(campo -> contémNumero(dadosInformadosPeloUsuario, faixas.get(campo))
+                        || fontesDoCultivo.stream()
+                                .anyMatch(fonte -> contémNumero(fonte.get("resumo"), faixas.get(campo))));
+        if (!valoresDoUsuario && !valoresDeFonte && !(soloEstimado && demaisFaixasVerificadas)) {
             return Map.of("erro", "Não consegui verificar todas as faixas na mensagem do usuário ou nas fontes consultadas. "
-                    + "Não vou preparar um cadastro com valores estimados; informe os valores ausentes.");
+                    + "Não vou preparar um cadastro com valores sem fonte ou sem estimativa explicitamente identificada.");
         }
         boolean duplicado = cultivoRepository.findAll().stream()
                 .anyMatch(cultivo -> cultivo.getNome().equalsIgnoreCase(nome));
@@ -846,8 +1001,20 @@ public class ConsultaBotanicaService {
         cultivo.put("habilitada", false);
         Map<String, Object> proposta = new LinkedHashMap<>();
         proposta.put("cultivo", cultivo);
-        proposta.put("origem", valoresDoUsuario ? "valores informados por você" : "valores encontrados nas fontes");
+        proposta.put("origem", soloEstimado
+                ? "temperatura e umidade do ar em fontes; umidade do solo estimada"
+                : valoresDoUsuario ? "valores informados por você" : "valores encontrados nas fontes");
+        if (soloEstimado) {
+            proposta.put("umidadeSoloEstimada", true);
+            proposta.put("observacao",
+                    "A faixa de solo 60–80% é uma estimativa inicial na escala do sensor da estufa. "
+                            + "Não equivale a 80% da capacidade de campo e deve ser validada com o sensor e o substrato. "
+                            + "O cultivo será cadastrado desabilitado.");
+        }
         proposta.put("fontes", valoresDeFonte ? fontesDoCultivo : List.of());
+        if (soloEstimado) {
+            proposta.put("fontes", fontesDoCultivo);
+        }
         return Map.of("cadastroPendente", proposta);
     }
 
@@ -905,7 +1072,9 @@ public class ConsultaBotanicaService {
                     Map<String, String> fonteTexto = new LinkedHashMap<>();
                     mapa.forEach((chave, valor) -> fonteTexto.put(
                             String.valueOf(chave), String.valueOf(valor)));
-                    fontesExternas.add(fonteTexto);
+                    if (!fontesExternas.contains(fonteTexto)) {
+                        fontesExternas.add(fonteTexto);
+                    }
                 }
             }
         }

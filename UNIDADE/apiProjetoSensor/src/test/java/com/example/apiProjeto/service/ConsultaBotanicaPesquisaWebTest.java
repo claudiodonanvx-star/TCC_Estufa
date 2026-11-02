@@ -30,8 +30,10 @@ class ConsultaBotanicaPesquisaWebTest {
     private final AtomicInteger chamadasAgente = new AtomicInteger();
     private final AtomicInteger chamadasWikipedia = new AtomicInteger();
     private final AtomicReference<String> ultimaBuscaWikipedia = new AtomicReference<>("");
+    private final AtomicReference<String> solicitacaoPesquisaGoogle = new AtomicReference<>("");
     private boolean groundingRetornaFontes = true;
     private boolean falhaRespostaFinal;
+    private boolean agenteChamaFerramenta = true;
     private HttpServer server;
     private ConsultaBotanicaService service;
 
@@ -40,8 +42,10 @@ class ConsultaBotanicaPesquisaWebTest {
         chamadasAgente.set(0);
         chamadasWikipedia.set(0);
         ultimaBuscaWikipedia.set("");
+        solicitacaoPesquisaGoogle.set("");
         groundingRetornaFontes = true;
         falhaRespostaFinal = false;
+        agenteChamaFerramenta = true;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/w/api.php", exchange -> {
             chamadasWikipedia.incrementAndGet();
@@ -116,18 +120,74 @@ class ConsultaBotanicaPesquisaWebTest {
     }
 
     @Test
-    void usaWikipediaComoFallbackQuandoPesquisaWebNaoRetornaCitacoes() {
-        groundingRetornaFontes = false;
+    void buscaFontesAntesDaRespostaMesmoQuandoAgenteNaoChamaFerramenta() {
+        agenteChamaFerramenta = false;
 
         Map<String, Object> resposta = service.consultar(
                 "abacaxi", "Quais cuidados são recomendados para o abacaxi?", null, null, List.of());
 
         JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
         assertEquals(1, fontes.size());
-        assertEquals("Abacaxi", fontes.path(0).path("titulo").asText());
-        assertEquals("Ananas comosus é uma espécie tropical cultivada.",
-                fontes.path(0).path("resumo").asText());
-        assertEquals(2, chamadasWikipedia.get());
+        assertEquals("https://www.embrapa.br/publicacoes/cultivo-abacaxi",
+                fontes.path(0).path("url").asText());
+        assertEquals("Resposta final baseada na fonte.", resposta.get("relatorio"));
+    }
+
+    @Test
+    void preparaPropostaDePepinoComEstimativaDeSoloSemQuestionario() {
+        agenteChamaFerramenta = false;
+
+        Map<String, Object> resposta = service.consultar(
+                "Pepino",
+                "Quero cadastrar pepino e consultar os dados externos.",
+                null,
+                null,
+                List.of());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposta =
+                (Map<String, Object>) resposta.get("cadastroPendente");
+        assertTrue(proposta != null);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
+        assertEquals(18, cultivo.get("temperaturaMinima"));
+        assertEquals(30, cultivo.get("temperaturaMaxima"));
+        assertEquals(70, cultivo.get("umidadeMinima"));
+        assertEquals(90, cultivo.get("umidadeMaxima"));
+        assertEquals(60, cultivo.get("umidadeSoloMinima"));
+        assertEquals(80, cultivo.get("umidadeSoloMaxima"));
+        assertEquals(false, cultivo.get("habilitada"));
+        assertEquals(true, proposta.get("umidadeSoloEstimada"));
+        assertTrue(proposta.get("observacao").toString().contains("estimativa"));
+        assertEquals(1, objectMapper.valueToTree(proposta.get("fontes")).size());
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("Quero cadastrar pepino"));
+    }
+
+    @Test
+    void naoUsaWikipediaComoEvidenciaDeFaixasDeCultivo() {
+        groundingRetornaFontes = false;
+
+        Map<String, Object> resposta = service.consultar(
+                "abacaxi", "Quais cuidados são recomendados para o abacaxi?", null, null, List.of());
+
+        JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
+        assertEquals(0, fontes.size());
+        assertEquals(0, chamadasWikipedia.get());
+    }
+
+    @Test
+    void pesquisaFaixasQuandoNomeDaPlantaEstaNaPergunta() {
+        agenteChamaFerramenta = false;
+
+        Map<String, Object> resposta = service.consultar(
+                "", "Quais os dados min e max do meu lírio da paz?", null, null, List.of());
+
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("lírio da paz"));
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("umidade relativa do ar"));
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("umidade da zona radicular"));
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("Quais os dados min e max"));
+        assertEquals(1, objectMapper.valueToTree(resposta.get("fontes")).size());
+        assertEquals(0, chamadasWikipedia.get());
     }
 
     @Test
@@ -139,13 +199,10 @@ class ConsultaBotanicaPesquisaWebTest {
                 "", "Eu quero cadastrar um pepino japonês, mas não sei os dados min e max "
                         + "para cadastrar, poderia consultar por favor.", null, null, List.of());
 
-        assertTrue(resposta.get("relatorio").toString().contains("informações em fontes externas"));
-        assertTrue(resposta.get("relatorio").toString().contains("Pepino japonês"));
         JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
-        assertEquals(1, fontes.size());
-        assertEquals("pepino japonês", fontes.path(0).path("termoBusca").asText());
-        assertTrue(ultimaBuscaWikipedia.get().contains("pepino+japon%C3%AAs"));
-        assertTrue(!ultimaBuscaWikipedia.get().contains("cadastrar"));
+        assertEquals(0, fontes.size());
+        assertTrue(resposta.get("relatorio").toString().contains("fontes externas verificáveis"));
+        assertEquals(0, chamadasWikipedia.get());
     }
 
     @Test
@@ -155,13 +212,37 @@ class ConsultaBotanicaPesquisaWebTest {
 
         String relatorio = resposta.get("relatorio").toString();
         assertTrue(relatorio.contains("Resposta final baseada na fonte."));
-        assertTrue(relatorio.contains("Não foi preparado nem salvo um cadastro."));
+        assertTrue(resposta.containsKey("cadastroPendente"));
     }
 
     private void responderGemini(HttpExchange exchange) throws IOException {
         JsonNode requisicao = objectMapper.readTree(exchange.getRequestBody().readAllBytes());
         String ferramentas = requisicao.path("tools").toString();
         if (ferramentas.contains("google_search")) {
+            solicitacaoPesquisaGoogle.set(requisicao.toString());
+            boolean consultaPepino = requisicao.toString().toLowerCase().contains("pepino");
+            if (consultaPepino && groundingRetornaFontes) {
+                responder(exchange, """
+                        {
+                          "candidates": [{
+                            "content": {"role":"model","parts":[{"text":"Para o pepino, são recomendados 18 a 30 graus e umidade relativa do ar entre 70% e 90%."}]},
+                            "groundingMetadata": {
+                              "groundingChunks": [{
+                                "web": {
+                                  "title":"Exigências climáticas para o cultivo de pepino",
+                                  "uri":"https://www.tecnologiaetreinamento.com.br/agricultura/exigencias-climaticas-para-o-cultivo-de-pepino/"
+                                }
+                              }],
+                              "groundingSupports": [{
+                                "segment":{"text":"Para o pepino, temperaturas de 18 a 30 °C e umidade relativa do ar entre 70% e 90%."},
+                                "groundingChunkIndices":[0]
+                              }]
+                            }
+                          }]
+                        }
+                        """);
+                return;
+            }
             responder(exchange, groundingRetornaFontes ? """
                     {
                       "candidates": [{
@@ -198,7 +279,7 @@ class ConsultaBotanicaPesquisaWebTest {
                 return;
             }
 
-            responder(exchange, """
+            responder(exchange, agenteChamaFerramenta ? """
                     {
                       "candidates": [{
                         "content": {
@@ -209,6 +290,15 @@ class ConsultaBotanicaPesquisaWebTest {
                               "args":{"termo":"abacaxi"}
                             }
                           }]
+                        }
+                      }]
+                    }
+                    """ : """
+                    {
+                      "candidates": [{
+                        "content": {
+                          "role":"model",
+                          "parts":[{"text":"Resposta final baseada na fonte."}]
                         }
                       }]
                     }

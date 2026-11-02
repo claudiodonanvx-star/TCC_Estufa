@@ -59,9 +59,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       return;
     }
 
-    final textoExibido = pergunta.isEmpty
-        ? 'Como cuidar de $planta?'
-        : pergunta;
+    final textoExibido =
+        pergunta.isEmpty ? 'Como cuidar de $planta?' : pergunta;
     setState(() {
       _mensagens.add(_MensagemChat(texto: textoExibido, doUsuario: true));
       _carregando = true;
@@ -115,15 +114,16 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
           'temperaturaAtual': double.tryParse(
             _temperaturaController.text.trim(),
           ),
-          'historico': _mensagens
-              .skip(_mensagens.length > 12 ? _mensagens.length - 12 : 0)
-              .map(
-                (mensagem) => {
-                  'papel': mensagem.doUsuario ? 'usuario' : 'agente',
-                  'texto': mensagem.texto,
-                },
-              )
-              .toList(),
+          'historico':
+              _mensagens
+                  .skip(_mensagens.length > 12 ? _mensagens.length - 12 : 0)
+                  .map(
+                    (mensagem) => {
+                      'papel': mensagem.doUsuario ? 'usuario' : 'agente',
+                      'texto': mensagem.texto,
+                    },
+                  )
+                  .toList(),
         }),
       );
       Map<String, dynamic> dados = {};
@@ -153,9 +153,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
               .map((fonte) => fonte['titulo']?.toString())
               .whereType<String>()
               .toList();
-      final complemento = fontes.isEmpty
-          ? ''
-          : '\n\nFontes: ${fontes.join(', ')}.';
+      final complemento =
+          fontes.isEmpty ? '' : '\n\nFontes: ${fontes.join(', ')}.';
       final arquivoPath = dados['arquivoUrl']?.toString();
       Uri? arquivoUri;
       if (arquivoPath != null && arquivoPath.startsWith('/')) {
@@ -205,20 +204,21 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   Future<bool> _confirmarFerramenta(FerramentaInterna ferramenta) async {
     return await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Confirmar comando'),
-            content: Text(ferramenta.descricaoConfirmacao),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Confirmar comando'),
+                content: Text(ferramenta.descricaoConfirmacao),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Confirmar'),
+                  ),
+                ],
               ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Confirmar'),
-              ),
-            ],
-          ),
         ) ??
         false;
   }
@@ -247,17 +247,19 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
             itemBuilder: (context, index) {
               final mensagem = _mensagens[index];
               return Align(
-                alignment: mensagem.doUsuario
-                    ? Alignment.centerRight
-                    : Alignment.centerLeft,
+                alignment:
+                    mensagem.doUsuario
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 340),
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color: mensagem.doUsuario
-                        ? const Color(0xFF0E7D63)
-                        : Colors.white,
+                    color:
+                        mensagem.doUsuario
+                            ? const Color(0xFF0E7D63)
+                            : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFD4EBDD)),
                   ),
@@ -268,9 +270,10 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                       Text(
                         mensagem.texto,
                         style: TextStyle(
-                          color: mensagem.doUsuario
-                              ? Colors.white
-                              : const Color(0xFF113128),
+                          color:
+                              mensagem.doUsuario
+                                  ? Colors.white
+                                  : const Color(0xFF113128),
                           height: 1.35,
                         ),
                       ),
@@ -289,8 +292,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                         const Text('Fontes externas consultadas:'),
                         for (final fonte in mensagem.fontes)
                           TextButton(
-                            onPressed: () =>
-                                _abrirFonte(fonte['url']?.toString()),
+                            onPressed:
+                                () => _abrirFonte(fonte['url']?.toString()),
                             child: Text(fonte['titulo']?.toString() ?? 'Fonte'),
                           ),
                       ],
@@ -306,21 +309,29 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: _cadastrosProcessando.contains(index)
-                                  ? null
-                                  : () => _confirmarCadastro(index, mensagem),
+                              onPressed:
+                                  _cadastrosProcessando.contains(index)
+                                      ? null
+                                      : () =>
+                                          _confirmarCadastro(index, mensagem),
                               icon: const Icon(Icons.save_outlined),
-                              label: const Text('Confirmar e salvar cultivo'),
+                              label: Text(
+                                mensagem.cadastroPendente?['umidadeSoloEstimada'] ==
+                                        true
+                                    ? 'Aceitar estimativa e cadastrar'
+                                    : 'Confirmar e salvar cultivo',
+                              ),
                             ),
                           ),
                           SizedBox(
                             width: double.infinity,
                             child: TextButton(
-                              onPressed: _cadastrosProcessando.contains(index)
-                                  ? null
-                                  : () => setState(
-                                      () => _cadastrosCancelados.add(index),
-                                    ),
+                              onPressed:
+                                  _cadastrosProcessando.contains(index)
+                                      ? null
+                                      : () => setState(
+                                        () => _cadastrosCancelados.add(index),
+                                      ),
                               child: const Text('Cancelar proposta'),
                             ),
                           ),
@@ -523,32 +534,6 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       _rolarParaFim();
       return;
     }
-    final confirmado =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Cadastrar ${dadosCultivo['nome']}?'),
-            content: Text(
-              'Temperatura: ${dadosCultivo['temperaturaMinima']}–${dadosCultivo['temperaturaMaxima']} °C\n'
-              'Umidade do ar: ${dadosCultivo['umidadeMinima']}–${dadosCultivo['umidadeMaxima']} %\n'
-              'Umidade do solo: ${dadosCultivo['umidadeSoloMinima']}–${dadosCultivo['umidadeSoloMaxima']} %\n\n'
-              'O cultivo será salvo desabilitado. Origem: ${proposta?['origem'] ?? 'não informada'}.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Cadastrar'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!confirmado || !mounted) return;
-
     setState(() => _cadastrosProcessando.add(indice));
     try {
       final baseUrl = await ApiSettings.obterUrlApi();
@@ -610,7 +595,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       'Temperatura: ${dados['temperaturaMinima']}–${dados['temperaturaMaxima']} °C\n'
       'Umidade do ar: ${dados['umidadeMinima']}–${dados['umidadeMaxima']} %\n'
       'Umidade do solo: ${dados['umidadeSoloMinima']}–${dados['umidadeSoloMaxima']} %\n'
-      'Origem: ${proposta['origem'] ?? 'não informada'}',
+      'Origem: ${proposta['origem'] ?? 'não informada'}'
+      '${proposta['umidadeSoloEstimada'] == true ? '\n\nAtenção: ${proposta['observacao'] ?? 'a faixa do solo é estimada e deve ser validada.'}\nAo tocar em “Aceitar estimativa e cadastrar”, você aceita essa estimativa.' : ''}',
     );
   }
 
@@ -623,9 +609,10 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      keyboardType: label == 'Planta'
-          ? TextInputType.text
-          : const TextInputType.numberWithOptions(decimal: true),
+      keyboardType:
+          label == 'Planta'
+              ? TextInputType.text
+              : const TextInputType.numberWithOptions(decimal: true),
     );
   }
 }
