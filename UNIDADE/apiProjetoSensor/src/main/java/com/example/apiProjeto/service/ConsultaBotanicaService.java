@@ -394,15 +394,17 @@ public class ConsultaBotanicaService {
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
                                         + "Nunca invente valores como se fossem fato ou como se fossem citados por uma fonte. "
-                                        + "A única estimativa permitida neste fluxo é a faixa de solo para pepino descrita abaixo. "
+                                        + "A estimativa permitida neste fluxo é somente a faixa de umidade do solo na escala do sensor, "
+                                        + "e pode ser usada para qualquer cultivo quando uma faixa específica não estiver disponível. "
                                         + "Para cadastrar uma planta, considere também os valores que a pessoa informou explicitamente "
                                         + "nas mensagens recentes do histórico. Se ela forneceu as seis faixas, use a origem usuario "
                                         + "e não exija confirmação desses valores por fontes externas; deixe claro que foram informados "
                                         + "pela pessoa. Se faltar qualquer limite, pesquise na web com buscar_fontes_cultivo. Use valores "
-                                        + "numéricos das fontes para temperatura e umidade do ar. Para pepino, se a fonte não trouxer "
-                                        + "uma faixa em porcentagem para o sensor de umidade do solo, use 60 a 80 como estimativa inicial "
-                                        + "da escala do sensor (não como conversão de capacidade de campo), marque umidadeSoloEstimada=true "
-                                        + "e explique essa limitação na proposta. Não faça perguntas de esclarecimento em sequência; "
+                                        + "numéricos das fontes para temperatura e umidade do ar. Para qualquer cultivo, se não houver "
+                                        + "uma faixa específica para a escala de umidade do solo deste sensor, use 60 a 80 somente como "
+                                        + "estimativa inicial genérica da escala do sensor (não como recomendação própria da espécie nem "
+                                        + "como conversão de capacidade de campo), marque umidadeSoloEstimada=true e explique essa limitação "
+                                        + "na proposta. Não faça perguntas de esclarecimento em sequência; "
                                         + "apresente uma única proposta completa com a ressalva e aguarde a confirmação explícita no aplicativo. "
                                         + "Quando os seis limites estiverem disponíveis ou a faixa do solo estiver identificada como estimativa, "
                                         + "prepare o cadastro com preparar_cadastro_cultivo. Nunca diga para clicar em um botão sem "
@@ -732,7 +734,7 @@ public class ConsultaBotanicaService {
     private Map<String, Object> declaracaoPrepararCadastroCultivo() {
         return Map.of(
                 "name", "preparar_cadastro_cultivo",
-                "description", "Prepara uma proposta sem gravar no banco. Use valores informados pelo usuário ou verificados nas fontes. Para pepino, quando a fonte não trouxer faixa para a escala do sensor de solo, pode usar 60–80 como estimativa inicial marcando umidadeSoloEstimada=true. A interface apresentará a ressalva e solicitará uma única confirmação antes de salvar desabilitado.",
+                "description", "Prepara uma proposta sem gravar no banco. Use valores informados pelo usuário ou verificados nas fontes. Para qualquer cultivo, quando não houver faixa específica para a escala do sensor de solo, pode usar 60–80 como estimativa genérica inicial, não específica da espécie, marcando umidadeSoloEstimada=true. A interface apresentará a ressalva e solicitará uma única confirmação antes de salvar desabilitado.",
                 "parameters", Map.of(
                         "type", "OBJECT",
                         "properties", Map.of(
@@ -975,7 +977,6 @@ public class ConsultaBotanicaService {
                                 && contémNumero(fonte.get("resumo"), valor)));
         boolean soloEstimado = argumentos.path("umidadeSoloEstimada").asBoolean(false)
                 && "estimada".equalsIgnoreCase(origem)
-                && normalizarTexto(nome).contains("pepino")
                 && faixas.get("umidadeSoloMinima") == 60
                 && faixas.get("umidadeSoloMaxima") == 80;
         boolean demaisFaixasVerificadas = List.of(
@@ -1007,8 +1008,9 @@ public class ConsultaBotanicaService {
         if (soloEstimado) {
             proposta.put("umidadeSoloEstimada", true);
             proposta.put("observacao",
-                    "A faixa de solo 60–80% é uma estimativa inicial na escala do sensor da estufa. "
-                            + "Não equivale a 80% da capacidade de campo e deve ser validada com o sensor e o substrato. "
+                    "A faixa de solo 60–80% é uma estimativa genérica inicial na escala do sensor da estufa, "
+                            + "não uma recomendação específica para esta espécie. Não equivale a 80% da capacidade "
+                            + "de campo e deve ser validada com o sensor e o substrato. "
                             + "O cultivo será cadastrado desabilitado.");
         }
         proposta.put("fontes", valoresDeFonte ? fontesDoCultivo : List.of());

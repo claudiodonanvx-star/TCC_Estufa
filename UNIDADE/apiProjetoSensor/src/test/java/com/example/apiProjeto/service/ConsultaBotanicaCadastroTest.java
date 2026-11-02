@@ -76,6 +76,32 @@ class ConsultaBotanicaCadastroTest {
     }
 
     @Test
+    void prepararCadastro_aceitaEstimativaDeSoloParaCultivoDiferenteDePepino() throws Exception {
+        Map<String, String> fonte = Map.of(
+                "termoBusca", "lírio-da-paz",
+                "resumo", "Temperatura mínima 18 e máxima 30 °C; umidade relativa do ar mínima 70 e máxima 90%.",
+                "titulo", "Cuidados de cultivo do lírio-da-paz",
+                "url", "https://example.org/lirio-da-paz");
+
+        Map<String, Object> resultado = service.prepararCadastroCultivo(
+                argumentosEstimativaSolo(),
+                "Cadastre lírio-da-paz.",
+                List.of(fonte));
+
+        assertTrue(resultado.containsKey("cadastroPendente"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposta = (Map<String, Object>) resultado.get("cadastroPendente");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
+        assertEquals(60.0, cultivo.get("umidadeSoloMinima"));
+        assertEquals(80.0, cultivo.get("umidadeSoloMaxima"));
+        assertEquals(true, proposta.get("umidadeSoloEstimada"));
+        assertTrue(proposta.get("observacao").toString().contains("genérica"));
+        assertTrue(proposta.get("observacao").toString().contains("não uma recomendação específica"));
+        verify(cultivoRepository, never()).save(org.mockito.ArgumentMatchers.any(Cultivo.class));
+    }
+
+    @Test
     void prepararCadastro_comValoresPresentesEmFonteDoCultivo_criaPropostaComCitacao() throws Exception {
         Map<String, String> fonte = Map.of(
                 "termoBusca", "abacaxi cultivo",
@@ -109,5 +135,22 @@ class ConsultaBotanicaCadastroTest {
                   "origem": "%s"
                 }
                 """.formatted(origem));
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode argumentosEstimativaSolo() throws Exception {
+        return new ObjectMapper().readTree("""
+                {
+                  "nome": "Lírio-da-paz",
+                  "tipo": "Planta ornamental",
+                  "temperaturaMinima": 18,
+                  "temperaturaMaxima": 30,
+                  "umidadeMinima": 70,
+                  "umidadeMaxima": 90,
+                  "umidadeSoloMinima": 60,
+                  "umidadeSoloMaxima": 80,
+                  "origem": "estimada",
+                  "umidadeSoloEstimada": true
+                }
+                """);
     }
 }
