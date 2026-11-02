@@ -44,6 +44,14 @@ public class ConsultaBotanicaService {
     private static final int MAXIMO_RODADAS_FERRAMENTAS = 8;
     private static final int MAXIMO_FONTES_EXTERNAS = 5;
     private static final Pattern NUMERO_PATTERN = Pattern.compile("(?<![\\d])\\d+(?:[.,]\\d+)?(?![\\d])");
+    private static final Set<String> PALAVRAS_INTENCAO_BUSCA = Set.of(
+            "a", "as", "ao", "aos", "ainda", "ajudar", "cadastre", "cadastrar", "cadastro",
+            "com", "como", "consultar", "cultivo", "cultivar", "da", "das", "de", "do", "dos",
+            "dados", "e", "em", "eu", "favor", "gostaria", "informacao", "informacoes", "me",
+            "mas",
+            "max", "maxima", "maximo", "min", "minima", "minimo", "na", "nas", "nao", "no",
+            "nos", "o", "os", "para", "por", "poderia", "preciso", "quais", "quero", "saber", "sei",
+            "sao", "sobre", "um", "uma", "valores");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8)).build();
@@ -229,39 +237,68 @@ public class ConsultaBotanicaService {
     }
 
     private List<Map<String, String>> buscarFontesWikipedia(String termo) throws Exception {
-        String urlBusca = wikipediaEndpoint + "?action=query&list=search&srsearch="
-                + URLEncoder.encode(termo + " cultivo", StandardCharsets.UTF_8)
-                + "&format=json&utf8=1&srlimit=3";
-        JsonNode busca = objectMapper.readTree(get(urlBusca));
-        List<String> ids = new ArrayList<>();
-        Map<String, String> titulos = new LinkedHashMap<>();
-        for (JsonNode item : busca.path("query").path("search")) {
-            String id = item.path("pageid").asText();
-            ids.add(id);
-            titulos.put(id, item.path("title").asText());
-        }
-        if (ids.isEmpty()) {
-            return List.of();
-        }
+        for (String consulta : variantesTermoBusca(termo)) {
+            String urlBusca = wikipediaEndpoint + "?action=query&list=search&srsearch="
+                    + URLEncoder.encode(consulta, StandardCharsets.UTF_8)
+                    + "&format=json&utf8=1&srlimit=3";
+            JsonNode busca = objectMapper.readTree(get(urlBusca));
+            List<String> ids = new ArrayList<>();
+            Map<String, String> titulos = new LinkedHashMap<>();
+            for (JsonNode item : busca.path("query").path("search")) {
+                String id = item.path("pageid").asText();
+                ids.add(id);
+                titulos.put(id, item.path("title").asText());
+            }
+            if (ids.isEmpty()) {
+                continue;
+            }
 
-        String urlExtratos = wikipediaEndpoint + "?action=query&pageids="
-                + String.join("|", ids)
-                + "&prop=extracts&exintro=1&explaintext=1&format=json&utf8=1";
-        JsonNode paginas = objectMapper.readTree(get(urlExtratos)).path("query").path("pages");
-        List<Map<String, String>> fontes = new ArrayList<>();
-        for (String id : ids) {
-            JsonNode pagina = paginas.path(id);
-            String titulo = titulos.get(id);
-            String extrato = pagina.path("extract").asText("").trim();
-            if (!extrato.isEmpty()) {
-                fontes.add(Map.of(
-                        "titulo", titulo,
-                        "url", "https://pt.wikipedia.org/wiki/"
-                                + URLEncoder.encode(titulo.replace(' ', '_'), StandardCharsets.UTF_8),
-                        "resumo", extrato.length() > 4000 ? extrato.substring(0, 4000) : extrato));
+            String urlExtratos = wikipediaEndpoint + "?action=query&pageids="
+                    + String.join("|", ids)
+                    + "&prop=extracts&exintro=1&explaintext=1&format=json&utf8=1";
+            JsonNode paginas = objectMapper.readTree(get(urlExtratos)).path("query").path("pages");
+            List<Map<String, String>> fontes = new ArrayList<>();
+            for (String id : ids) {
+                JsonNode pagina = paginas.path(id);
+                String titulo = titulos.get(id);
+                String extrato = pagina.path("extract").asText("").trim();
+                if (!extrato.isEmpty()) {
+                    fontes.add(Map.of(
+                            "titulo", titulo,
+                            "url", "https://pt.wikipedia.org/wiki/"
+                                    + URLEncoder.encode(titulo.replace(' ', '_'), StandardCharsets.UTF_8),
+                            "resumo", extrato.length() > 4000 ? extrato.substring(0, 4000) : extrato));
+                }
+            }
+            if (!fontes.isEmpty()) {
+                return fontes;
             }
         }
-        return fontes;
+        return List.of();
+    }
+
+    private List<String> variantesTermoBusca(String termo) {
+        List<String> palavras = List.of((termo == null ? "" : termo)
+                .toLowerCase(Locale.ROOT)
+                .split("[^\\p{L}\\p{N}-]+")).stream()
+                .filter(palavra -> !palavra.isBlank())
+                .filter(palavra -> !PALAVRAS_INTENCAO_BUSCA.contains(
+                        Normalizer.normalize(palavra, Normalizer.Form.NFD)
+                                .replaceAll("\\p{M}", "")))
+                .limit(5)
+                .toList();
+        if (palavras.isEmpty()) {
+            return termo == null || termo.isBlank() ? List.of() : List.of(termo.trim());
+        }
+
+        List<String> variantes = new ArrayList<>();
+        for (int quantidade = palavras.size(); quantidade > 0; quantidade--) {
+            String consulta = String.join(" ", palavras.subList(0, quantidade));
+            if (!variantes.contains(consulta)) {
+                variantes.add(consulta);
+            }
+        }
+        return variantes;
     }
 
         private ResultadoIA gerarRelatorioComIA(String planta, String pergunta, Double umidade,
@@ -308,11 +345,14 @@ public class ConsultaBotanicaService {
         } catch (Exception erro) {
             LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
             String termoBusca = planta == null || planta.isBlank() ? pergunta : planta;
+            String termoFonte = variantesTermoBusca(termoBusca).stream()
+                    .findFirst()
+                    .orElse(termoBusca);
             try {
                 List<Map<String, String>> fontes = buscarFontes(termoBusca).stream()
                         .map(fonte -> {
                             Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
-                            fonteComTermo.put("termoBusca", termoBusca);
+                            fonteComTermo.put("termoBusca", termoFonte);
                             return Map.copyOf(fonteComTermo);
                         })
                         .toList();

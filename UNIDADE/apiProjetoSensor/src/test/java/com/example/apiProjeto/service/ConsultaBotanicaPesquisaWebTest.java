@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.example.apiProjeto.repository.AlertaRepository;
 import com.example.apiProjeto.repository.CultivoRepository;
@@ -28,6 +29,7 @@ class ConsultaBotanicaPesquisaWebTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicInteger chamadasAgente = new AtomicInteger();
     private final AtomicInteger chamadasWikipedia = new AtomicInteger();
+    private final AtomicReference<String> ultimaBuscaWikipedia = new AtomicReference<>("");
     private boolean groundingRetornaFontes = true;
     private boolean falhaRespostaFinal;
     private HttpServer server;
@@ -37,6 +39,7 @@ class ConsultaBotanicaPesquisaWebTest {
     void iniciarServidorDeTeste() throws IOException {
         chamadasAgente.set(0);
         chamadasWikipedia.set(0);
+        ultimaBuscaWikipedia.set("");
         groundingRetornaFontes = true;
         falhaRespostaFinal = false;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -44,13 +47,31 @@ class ConsultaBotanicaPesquisaWebTest {
             chamadasWikipedia.incrementAndGet();
             String query = exchange.getRequestURI().getRawQuery();
             if (query != null && query.contains("pageids=")) {
-                responder(exchange, """
-                        {"query":{"pages":{"42":{"extract":"Ananas comosus é uma espécie tropical cultivada."}}}}
-                        """);
+                responder(exchange, ultimaBuscaWikipedia.get().toLowerCase().contains("abacaxi")
+                        ? """
+                                {"query":{"pages":{"42":{"extract":"Ananas comosus é uma espécie tropical cultivada."}}}}
+                                """
+                        : """
+                                {"query":{"pages":{"42":{"extract":"Pepino japonês é uma espécie cultivada em hortas."}}}}
+                                """);
             } else {
-                responder(exchange, """
-                        {"query":{"search":[{"pageid":42,"title":"Abacaxi"}]}}
-                        """);
+                ultimaBuscaWikipedia.set(query == null ? "" : query);
+                boolean termoPepinoLimpo = query != null
+                        && query.toLowerCase().contains("pepino")
+                        && !query.toLowerCase().contains("cadastrar")
+                        && !query.toLowerCase().contains("quero");
+                boolean termoAbacaxi = query != null && query.toLowerCase().contains("abacaxi");
+                if (termoPepinoLimpo || termoAbacaxi) {
+                    responder(exchange, termoPepinoLimpo ? """
+                            {"query":{"search":[{"pageid":42,"title":"Pepino japonês"}]}}
+                            """ : """
+                            {"query":{"search":[{"pageid":42,"title":"Abacaxi"}]}}
+                            """);
+                } else {
+                    responder(exchange, """
+                            {"query":{"search":[]}}
+                            """);
+                }
             }
         });
         server.createContext("/gemini", this::responderGemini);
@@ -112,15 +133,19 @@ class ConsultaBotanicaPesquisaWebTest {
     @Test
     void usaFontesExternasQuandoProvedorFalhaNaRespostaFinal() {
         falhaRespostaFinal = true;
+        groundingRetornaFontes = false;
 
         Map<String, Object> resposta = service.consultar(
-                "pepino japonês", "Como cultivar pepino japonês?", null, null, List.of());
+                "", "Eu quero cadastrar um pepino japonês, mas não sei os dados min e max "
+                        + "para cadastrar, poderia consultar por favor.", null, null, List.of());
 
         assertTrue(resposta.get("relatorio").toString().contains("informações em fontes externas"));
-        assertTrue(resposta.get("relatorio").toString().contains("A Embrapa informa"));
+        assertTrue(resposta.get("relatorio").toString().contains("Pepino japonês"));
         JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
         assertEquals(1, fontes.size());
         assertEquals("pepino japonês", fontes.path(0).path("termoBusca").asText());
+        assertTrue(ultimaBuscaWikipedia.get().contains("pepino+japon%C3%AAs"));
+        assertTrue(!ultimaBuscaWikipedia.get().contains("cadastrar"));
     }
 
     @Test
