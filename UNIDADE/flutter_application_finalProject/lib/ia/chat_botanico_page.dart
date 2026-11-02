@@ -436,26 +436,65 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     final proposta = Map<String, dynamic>.from(valor);
     final cultivo = proposta['cultivo'];
     if (cultivo is Map) {
-      proposta['cultivo'] = Map<String, dynamic>.from(cultivo);
+      final dadosCultivo = _validarDadosCultivo(
+        Map<String, dynamic>.from(cultivo),
+      );
+      if (dadosCultivo == null) return null;
+      proposta['cultivo'] = dadosCultivo;
       return proposta;
     }
 
-    const camposCultivo = {
-      'nome',
-      'tipo',
+    final dadosCultivo = _validarDadosCultivo(proposta);
+    if (dadosCultivo == null) return null;
+    return {
+      'cultivo': dadosCultivo,
+      'origem': proposta['origem'] ?? 'não informada',
+      'fontes': proposta['fontes'] ?? const <dynamic>[],
+    };
+  }
+
+  Map<String, dynamic>? _validarDadosCultivo(Map<String, dynamic> dados) {
+    final nome = dados['nome']?.toString().trim() ?? '';
+    final tipo = dados['tipo']?.toString().trim() ?? '';
+    const camposNumericos = [
       'temperaturaMinima',
       'temperaturaMaxima',
       'umidadeMinima',
       'umidadeMaxima',
       'umidadeSoloMinima',
       'umidadeSoloMaxima',
-    };
-    if (!camposCultivo.every(proposta.containsKey)) return null;
-    return {
-      'cultivo': proposta,
-      'origem': proposta['origem'] ?? 'não informada',
-      'fontes': proposta['fontes'] ?? const <dynamic>[],
-    };
+    ];
+    final valores = <String, double>{};
+    for (final campo in camposNumericos) {
+      final valor = dados[campo];
+      final numero =
+          valor is num
+              ? valor.toDouble()
+              : double.tryParse(valor?.toString().replaceAll(',', '.') ?? '');
+      if (numero == null || !numero.isFinite) return null;
+      valores[campo] = numero;
+    }
+
+    final temperaturaMinima = valores['temperaturaMinima']!;
+    final temperaturaMaxima = valores['temperaturaMaxima']!;
+    final umidadeMinima = valores['umidadeMinima']!;
+    final umidadeMaxima = valores['umidadeMaxima']!;
+    final soloMinimo = valores['umidadeSoloMinima']!;
+    final soloMaximo = valores['umidadeSoloMaxima']!;
+    if (nome.isEmpty ||
+        tipo.isEmpty ||
+        temperaturaMinima < 0 ||
+        temperaturaMaxima < temperaturaMinima ||
+        umidadeMinima < 0 ||
+        umidadeMaxima > 100 ||
+        umidadeMaxima < umidadeMinima ||
+        soloMinimo < 0 ||
+        soloMaximo > 100 ||
+        soloMaximo < soloMinimo) {
+      return null;
+    }
+
+    return {'nome': nome, 'tipo': tipo, ...valores, 'habilitada': false};
   }
 
   Future<void> _confirmarCadastro(int indice, _MensagemChat mensagem) async {
@@ -467,7 +506,23 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     final proposta = mensagem.cadastroPendente;
     final cultivo = proposta?['cultivo'];
     if (cultivo is! Map) return;
-    final dadosCultivo = Map<String, dynamic>.from(cultivo);
+    final dadosCultivo = _validarDadosCultivo(
+      Map<String, dynamic>.from(cultivo),
+    );
+    if (dadosCultivo == null) {
+      setState(() {
+        _cadastrosCancelados.add(indice);
+        _mensagens.add(
+          const _MensagemChat(
+            texto:
+                'Não foi possível cadastrar: a proposta está incompleta ou contém faixas inválidas. Solicite uma nova proposta com os valores corretos.',
+            doUsuario: false,
+          ),
+        );
+      });
+      _rolarParaFim();
+      return;
+    }
     final confirmado =
         await showDialog<bool>(
           context: context,
@@ -500,7 +555,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       final token = await _secureStorage.read(key: 'estufa_jwt');
       if (!mounted) return;
       final resposta = await http.post(
-        Uri.parse('$baseUrl/api/cultivos'),
+        Uri.parse(baseUrl).resolve('/api/cultivos'),
         headers: {
           'Content-Type': 'application/json',
           if (token != null && token.isNotEmpty)
@@ -508,7 +563,7 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         },
         body: jsonEncode(dadosCultivo),
       );
-      if (resposta.statusCode != 201) {
+      if (resposta.statusCode < 200 || resposta.statusCode >= 300) {
         throw Exception(
           'A API recusou o cadastro (${resposta.statusCode}). ${resposta.body}',
         );
@@ -526,11 +581,16 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       _rolarParaFim();
     } catch (erro) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(erro.toString().replaceFirst('Exception: ', '')),
-          ),
-        );
+        setState(() {
+          _mensagens.add(
+            _MensagemChat(
+              texto:
+                  'Não foi possível salvar o cultivo. ${erro.toString().replaceFirst('Exception: ', '')}',
+              doUsuario: false,
+            ),
+          );
+        });
+        _rolarParaFim();
       }
     } finally {
       if (mounted) {

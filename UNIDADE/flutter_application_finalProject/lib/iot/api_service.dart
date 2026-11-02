@@ -162,6 +162,7 @@ Future<List<RelatorioDiario>> fetchRelatorios(
 ) async {
   if (ipAtual.isEmpty || !ipAtual.startsWith('http')) return [];
 
+  await consolidarRelatorioHoje(ipAtual);
   final response = await http.get(
     Uri.parse('$ipAtual/api/relatorios/$periodo'),
     headers: {
@@ -175,6 +176,26 @@ Future<List<RelatorioDiario>> fetchRelatorios(
     return jsonList.map((j) => RelatorioDiario.fromJson(j)).toList();
   } else {
     throw Exception('Erro ao carregar relatorios ($periodo)');
+  }
+}
+
+Future<void> consolidarRelatorioHoje(String ipAtual) async {
+  if (ipAtual.isEmpty || !ipAtual.startsWith('http')) {
+    throw Exception('IP inválido para atualizar o histórico.');
+  }
+
+  final response = await http.post(
+    Uri.parse('$ipAtual/api/relatorios/consolidar/hoje'),
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Accept': 'application/json',
+    },
+  );
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw Exception(
+      'Erro ao atualizar o histórico (${response.statusCode}): ${response.body}',
+    );
   }
 }
 

@@ -39,23 +39,23 @@ public class RelatoriosController {
     }
 
     /**
-     * Últimos 7 dias consolidados.
+     * Últimos 7 dias, incluindo o dia atual quando já houver leituras.
      * GET /api/relatorios/semanal
      */
     @GetMapping("/semanal")
     public ResponseEntity<List<RelatorioDiario>> getSemanal() {
-        LocalDate fim = LocalDate.now().minusDays(1);
+        LocalDate fim = LocalDate.now();
         LocalDate inicio = fim.minusDays(6);
         return ResponseEntity.ok(relatorioRepository.findByDataRefBetweenOrderByDataRef(inicio, fim));
     }
 
     /**
-     * Últimos 30 dias consolidados.
+     * Últimos 30 dias, incluindo o dia atual quando já houver leituras.
      * GET /api/relatorios/mensal
      */
     @GetMapping("/mensal")
     public ResponseEntity<List<RelatorioDiario>> getMensal() {
-        LocalDate fim = LocalDate.now().minusDays(1);
+        LocalDate fim = LocalDate.now();
         LocalDate inicio = fim.minusDays(29);
         return ResponseEntity.ok(relatorioRepository.findByDataRefBetweenOrderByDataRef(inicio, fim));
     }
@@ -130,6 +130,21 @@ public class RelatoriosController {
             } else {
                 resultado = consolidacaoService.consolidarD1();
             }
+            return ResponseEntity.ok(Map.of("mensagem", resultado));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("mensagem", "Erro: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Consolida as leituras do dia atual para atualizar o histórico em tempo real.
+     * POST /api/relatorios/consolidar/hoje
+     */
+    @PostMapping("/consolidar/hoje")
+    public ResponseEntity<Map<String, String>> consolidarHoje() {
+        try {
+            String resultado = consolidacaoService.consolidarDia(LocalDate.now());
             return ResponseEntity.ok(Map.of("mensagem", resultado));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()

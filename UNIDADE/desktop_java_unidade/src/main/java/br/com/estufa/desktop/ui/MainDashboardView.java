@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -33,6 +35,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -42,11 +47,15 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.util.Duration;
 
 public class MainDashboardView extends BorderPane {
@@ -508,6 +517,10 @@ public class MainDashboardView extends BorderPane {
     }
 
     private static class PeriodPanel extends BorderPane {
+        private static final List<String> DEFAULT_CHART_ORDER = List.of("trend", "alerts", "heatmap");
+        private static final Preferences LAYOUT_PREFERENCES =
+                Preferences.userNodeForPackage(MainDashboardView.class).node("period-chart-layout");
+
         private final PeriodType period;
 
         private final Label temp = new Label("0.0 C");
@@ -520,6 +533,9 @@ public class MainDashboardView extends BorderPane {
         private final LineChart<String, Number> lineChart;
         private final BarChart<String, Number> barChart;
         private final GridPane heatMap = new GridPane();
+        private final GridPane chartGrid = new GridPane();
+        private final List<String> chartOrder = new ArrayList<>(DEFAULT_CHART_ORDER);
+        private final Map<String, Node> chartCards = new java.util.LinkedHashMap<>();
         private final TextArea summary = new TextArea();
         private final ListView<String> recommendations = new ListView<>();
         private final TableView<SensorData> table = new TableView<>();
@@ -542,7 +558,13 @@ public class MainDashboardView extends BorderPane {
             barChart.setTitle("Alertas por bloco");
             barChart.setAnimated(false);
 
-            setTop(buildCards());
+            chartCards.put("trend", movableChartCard("trend", "Tendência das leituras", lineChart));
+            chartCards.put("alerts", movableChartCard("alerts", "Alertas por bloco", barChart));
+            chartCards.put("heatmap", movableChartCard("heatmap", "Mapa de risco", heatMap));
+            loadChartOrder();
+
+            VBox top = new VBox(4, buildCards(), buildChartToolbar());
+            setTop(top);
             setCenter(buildCenter());
             setBottom(buildBottom());
         }
@@ -575,18 +597,136 @@ public class MainDashboardView extends BorderPane {
         }
 
         private Node buildCenter() {
-            SplitPane split = new SplitPane();
-            split.setDividerPositions(0.68);
+            chartGrid.setHgap(12);
+            chartGrid.setVgap(12);
+            chartGrid.setPadding(new Insets(4, 0, 8, 0));
+            chartGrid.getColumnConstraints().setAll(
+                    new ColumnConstraints(0, 50, Double.MAX_VALUE),
+                    new ColumnConstraints(0, 50, Double.MAX_VALUE)
+            );
+            chartGrid.getColumnConstraints().forEach(column -> column.setPercentWidth(50));
 
-            VBox left = new VBox(8, lineChart, barChart);
-            VBox.setVgrow(lineChart, Priority.ALWAYS);
-            VBox.setVgrow(barChart, Priority.ALWAYS);
+            ScrollPane scrollPane = new ScrollPane(chartGrid);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setFitToHeight(false);
+            scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            renderChartOrder();
+            return scrollPane;
+        }
 
-            VBox right = new VBox(8, new Label("Heatmap de risco"), heatMap);
-            right.setPadding(new Insets(2));
+        private Node buildChartToolbar() {
+            Label hint = new Label("Arraste os gráficos para organizar como preferir.");
+            hint.setStyle("-fx-text-fill: #475467; -fx-font-size: 11px;");
 
-            split.getItems().addAll(left, right);
-            return split;
+            MenuItem resetLayout = new MenuItem("Restaurar layout padrão");
+            resetLayout.setOnAction(event -> {
+                chartOrder.clear();
+                chartOrder.addAll(DEFAULT_CHART_ORDER);
+                renderChartOrder();
+                saveChartOrder();
+            });
+
+            MenuButton layoutMenu = new MenuButton("Organizar");
+            layoutMenu.getItems().add(resetLayout);
+            layoutMenu.setTooltip(new Tooltip("Opções para organizar os gráficos"));
+
+            HBox toolbar = new HBox(8, hint, layoutMenu);
+            toolbar.setAlignment(Pos.CENTER_RIGHT);
+            toolbar.setPadding(new Insets(0, 0, 4, 0));
+            return toolbar;
+        }
+
+        private Node movableChartCard(String id, String title, Node content) {
+            Label heading = new Label(title + "  \u22ee");
+            heading.getStyleClass().add("chart-card-heading");
+
+            VBox card = new VBox(8, heading, content);
+            card.getStyleClass().add("chart-card");
+            card.setPadding(new Insets(12));
+            card.setMinHeight(280);
+            card.setPrefHeight(320);
+            VBox.setVgrow(content, Priority.ALWAYS);
+            Tooltip.install(card, new Tooltip("Arraste este cartão para mudar sua posição"));
+
+            card.setOnDragDetected(event -> {
+                Dragboard dragboard = card.startDragAndDrop(TransferMode.MOVE);
+                ClipboardContent clipboard = new ClipboardContent();
+                clipboard.putString(id);
+                dragboard.setContent(clipboard);
+                event.consume();
+            });
+            card.setOnDragOver(event -> {
+                Dragboard dragboard = event.getDragboard();
+                if (dragboard.hasString() && chartCards.containsKey(dragboard.getString())
+                        && !id.equals(dragboard.getString())) {
+                    event.acceptTransferModes(TransferMode.MOVE);
+                }
+                event.consume();
+            });
+            card.setOnDragDropped(event -> {
+                Dragboard dragboard = event.getDragboard();
+                boolean completed = false;
+                if (dragboard.hasString()) {
+                    int sourceIndex = chartOrder.indexOf(dragboard.getString());
+                    int targetIndex = chartOrder.indexOf(id);
+                    if (sourceIndex >= 0 && targetIndex >= 0) {
+                        java.util.Collections.swap(chartOrder, sourceIndex, targetIndex);
+                        renderChartOrder();
+                        saveChartOrder();
+                        completed = true;
+                    }
+                }
+                event.setDropCompleted(completed);
+                event.consume();
+            });
+            return card;
+        }
+
+        private void renderChartOrder() {
+            chartGrid.getChildren().clear();
+            for (int index = 0; index < chartOrder.size(); index++) {
+                Node card = chartCards.get(chartOrder.get(index));
+                if (card != null) {
+                    int column = index % 2;
+                    int row = index / 2;
+                    chartGrid.add(card, column, row);
+                    GridPane.setHgrow(card, Priority.ALWAYS);
+                    GridPane.setVgrow(card, Priority.ALWAYS);
+                }
+            }
+        }
+
+        private void loadChartOrder() {
+            String saved = LAYOUT_PREFERENCES.get("period." + period.name(), "");
+            if (saved.isBlank()) {
+                return;
+            }
+
+            List<String> restored = new ArrayList<>();
+            for (String id : saved.split(",")) {
+                if (chartCards.containsKey(id) && !restored.contains(id)) {
+                    restored.add(id);
+                }
+            }
+            for (String id : DEFAULT_CHART_ORDER) {
+                if (!restored.contains(id)) {
+                    restored.add(id);
+                }
+            }
+            chartOrder.clear();
+            chartOrder.addAll(restored);
+        }
+
+        private void saveChartOrder() {
+            try {
+                LAYOUT_PREFERENCES.put("period." + period.name(), String.join(",", chartOrder));
+                LAYOUT_PREFERENCES.flush();
+            } catch (BackingStoreException | SecurityException exception) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setHeaderText("Não foi possível salvar o layout");
+                alert.setContentText("A organização dos gráficos foi aplicada nesta sessão, mas não será mantida ao reabrir o desktop.");
+                alert.show();
+            }
         }
 
         private Node buildBottom() {
