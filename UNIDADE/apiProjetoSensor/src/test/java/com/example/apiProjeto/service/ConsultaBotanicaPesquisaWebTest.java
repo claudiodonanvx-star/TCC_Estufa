@@ -217,6 +217,38 @@ class ConsultaBotanicaPesquisaWebTest {
     }
 
     @Test
+    void preparaPropostaDeLirioAranhaComFaixasDeBaixaConfiancaEConfirmaçãoDeRisco() {
+        agenteChamaFerramenta = false;
+        groundingRetornaFontes = false;
+
+        Map<String, Object> resposta = service.consultar(
+                "",
+                "Eu quero cadastrar lírio aranha no sistema, mas não sei direito as infos, "
+                        + "poderia pesquisar os requisitos dela para a estufa por favor?",
+                null,
+                null,
+                List.of());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposta =
+                (Map<String, Object>) resposta.get("cadastroPendente");
+        assertTrue(proposta != null);
+        assertEquals(true, proposta.get("estimativaNaoVerificada"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
+        assertEquals("lírio aranha", cultivo.get("nome"));
+        assertEquals(15, cultivo.get("temperaturaMinima"));
+        assertEquals(24, cultivo.get("temperaturaMaxima"));
+        assertEquals(40, cultivo.get("umidadeMinima"));
+        assertEquals(60, cultivo.get("umidadeMaxima"));
+        assertEquals(60, cultivo.get("umidadeSoloMinima"));
+        assertEquals(80, cultivo.get("umidadeSoloMaxima"));
+        assertTrue(proposta.get("observacao").toString().contains("baixa confiança"));
+        assertTrue(proposta.get("observacao").toString().contains("assume o risco"));
+        assertTrue(resposta.get("relatorio").toString().contains("proposta preliminar"));
+    }
+
+    @Test
     void usaFontesExternasQuandoProvedorFalhaNaRespostaFinal() {
         falhaRespostaFinal = true;
         groundingRetornaFontes = false;

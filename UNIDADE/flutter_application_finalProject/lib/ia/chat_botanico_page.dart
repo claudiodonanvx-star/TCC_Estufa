@@ -316,7 +316,11 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                                           _confirmarCadastro(index, mensagem),
                               icon: const Icon(Icons.save_outlined),
                               label: Text(
-                                mensagem.cadastroPendente?['umidadeSoloEstimada'] ==
+                                mensagem.cadastroPendente?['estimativaNaoVerificada'] ==
+                                        true
+                                    ? 'Assumir o risco e cadastrar'
+                                    : mensagem
+                                            .cadastroPendente?['umidadeSoloEstimada'] ==
                                         true
                                     ? 'Aceitar estimativa e cadastrar'
                                     : 'Confirmar e salvar cultivo',
@@ -590,13 +594,17 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       return const Text('A proposta recebida está incompleta.');
     }
     final dados = Map<String, dynamic>.from(cultivo);
+    final estimativaNaoVerificada = proposta['estimativaNaoVerificada'] == true;
+    final possuiEstimativa =
+        estimativaNaoVerificada || proposta['umidadeSoloEstimada'] == true;
     return Text(
       'Proposta: ${dados['nome']} (${dados['tipo']})\n'
+      '${estimativaNaoVerificada ? '⚠️ HÁ FAIXAS ESTIMADAS, SEM VALIDAÇÃO TÉCNICA\n' : ''}'
       'Temperatura: ${dados['temperaturaMinima']}–${dados['temperaturaMaxima']} °C\n'
       'Umidade do ar: ${dados['umidadeMinima']}–${dados['umidadeMaxima']} %\n'
       'Umidade do solo: ${dados['umidadeSoloMinima']}–${dados['umidadeSoloMaxima']} %\n'
       'Origem: ${proposta['origem'] ?? 'não informada'}'
-      '${proposta['umidadeSoloEstimada'] == true ? '\n\nAtenção: ${proposta['observacao'] ?? 'a faixa do solo é estimada e deve ser validada.'}\nAo tocar em “Aceitar estimativa e cadastrar”, você aceita essa estimativa.' : ''}',
+      '${possuiEstimativa ? '\n\nAtenção: ${proposta['observacao'] ?? 'as faixas são estimadas e devem ser validadas.'}\nAo confirmar o cadastro, você assume o risco de usar esses valores.' : ''}',
     );
   }
 

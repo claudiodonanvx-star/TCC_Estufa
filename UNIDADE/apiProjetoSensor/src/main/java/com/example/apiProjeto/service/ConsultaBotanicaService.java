@@ -400,27 +400,30 @@ public class ConsultaBotanicaService {
                                         + "se não recebeu resultados verificáveis. Fontes externas já pesquisadas pelo servidor: "
                                         + objectMapper.writeValueAsString(fontesExternas)
                                         + ". Se a lista estiver vazia, informe que não foi possível verificar fontes externas "
-                                        + "e não invente recomendações ou faixas numéricas. "
+                                        + "e não invente recomendações ou faixas numéricas como fatos. "
+                                        + "Se a pessoa pedir o cadastro e não houver valores confiáveis, ainda assim proponha "
+                                        + "faixas preliminares estimadas claramente identificadas como não verificadas, "
+                                        + "explique o risco e deixe a confirmação explícita para o usuário. "
                                         + "Se houver fonte com título e URL, mas sem trecho de citação, mostre-a como referência "
                                         + "e informe que o conteúdo não foi confirmado; não diga que a lista está vazia nem atribua "
                                         + "números ou afirmações específicas a esse link. "
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
                                         + "Nunca invente valores como se fossem fato ou como se fossem citados por uma fonte. "
-                                        + "A estimativa permitida neste fluxo é somente a faixa de umidade do solo na escala do sensor, "
-                                        + "e pode ser usada para qualquer cultivo quando uma faixa específica não estiver disponível. "
                                         + "Para cadastrar uma planta, considere também os valores que a pessoa informou explicitamente "
                                         + "nas mensagens recentes do histórico. Se ela forneceu as seis faixas, use a origem usuario "
                                         + "e não exija confirmação desses valores por fontes externas; deixe claro que foram informados "
                                         + "pela pessoa. Se faltar qualquer limite, pesquise na web com buscar_fontes_cultivo. Use valores "
-                                        + "numéricos das fontes para temperatura e umidade do ar. Para qualquer cultivo, se não houver "
-                                        + "uma faixa específica para a escala de umidade do solo deste sensor, use 60 a 80 somente como "
-                                        + "estimativa inicial genérica da escala do sensor (não como recomendação própria da espécie nem "
-                                        + "como conversão de capacidade de campo), marque umidadeSoloEstimada=true e explique essa limitação "
-                                        + "na proposta. Não faça perguntas de esclarecimento em sequência; "
+                                        + "numéricos das fontes para temperatura e umidade do ar quando disponíveis. Se uma ou mais "
+                                        + "faixas não puderem ser verificadas, proponha uma estimativa preliminar plausível e conservadora "
+                                        + "para cada faixa faltante, marque estimativaNaoVerificada=true e origem=estimada, e descreva "
+                                        + "quais valores são incertos. Para umidade do solo, use 60 a 80 somente como estimativa inicial "
+                                        + "genérica na escala do sensor (não como conversão de capacidade de campo), marque "
+                                        + "umidadeSoloEstimada=true. Nunca apresente estimativas como fatos ou como recomendação "
+                                        + "técnica confirmada. Não faça perguntas de esclarecimento em sequência; "
                                         + "apresente uma única proposta completa com a ressalva e aguarde a confirmação explícita no aplicativo. "
-                                        + "Quando os seis limites estiverem disponíveis ou a faixa do solo estiver identificada como estimativa, "
-                                        + "prepare o cadastro com preparar_cadastro_cultivo. Nunca diga para clicar em um botão sem "
+                                        + "Quando os seis limites estiverem disponíveis, ainda que alguns sejam estimativas claramente "
+                                        + "marcadas, prepare o cadastro com preparar_cadastro_cultivo. Nunca diga para clicar em um botão sem "
                                         + "preparar uma proposta; só diga que o cadastro será salvo após a confirmação explícita "
                                         + "nos controles exibidos pelo aplicativo. "
                                         + "As ferramentas consultam somente dados operacionais em modo de leitura; não tente acessar "
@@ -478,11 +481,14 @@ public class ConsultaBotanicaService {
             String planta,
             ResultadoIA resultado) {
         String nomeCultivo = planta == null || planta.isBlank()
-                ? (normalizarTexto(pergunta).contains("pepino") ? "Pepino" : "")
+                ? termoBuscaBotanica("", pergunta)
                 : planta.trim();
-        if (!solicitaCadastro(pergunta) || resultado.cadastroPendente() != null
-                || !normalizarTexto(nomeCultivo).contains("pepino")) {
+        if (!solicitaCadastro(pergunta) || resultado.cadastroPendente() != null) {
             return resultado;
+        }
+
+        if (!normalizarTexto(nomeCultivo).contains("pepino")) {
+            return completarEstimativaLirioAranha(nomeCultivo, resultado);
         }
 
         List<Map<String, String>> fontesDoPepino = resultado.fontes().stream()
@@ -522,6 +528,51 @@ public class ConsultaBotanicaService {
         proposta.put("fontes", fontesDoPepino);
         return new ResultadoIA(
                 resultado.texto(),
+                resultado.arquivoUrl(),
+                resultado.arquivoNome(),
+                proposta,
+                resultado.fontes());
+    }
+
+    private ResultadoIA completarEstimativaLirioAranha(String nomeCultivo, ResultadoIA resultado) {
+        String nomeNormalizado = normalizarTexto(nomeCultivo);
+        if (!(nomeNormalizado.contains("lirio aranha") || nomeNormalizado.contains("lycoris"))
+                || cultivoRepository.findAll().stream()
+                        .anyMatch(cultivo -> normalizarTexto(cultivo.getNome()).equals(nomeNormalizado))) {
+            return resultado;
+        }
+
+        Map<String, Object> cultivo = new LinkedHashMap<>();
+        cultivo.put("nome", nomeCultivo);
+        cultivo.put("tipo", "Planta ornamental");
+        cultivo.put("temperaturaMinima", 15);
+        cultivo.put("temperaturaMaxima", 24);
+        cultivo.put("umidadeMinima", 40);
+        cultivo.put("umidadeMaxima", 60);
+        cultivo.put("umidadeSoloMinima", 60);
+        cultivo.put("umidadeSoloMaxima", 80);
+        cultivo.put("habilitada", false);
+
+        Map<String, Object> proposta = new LinkedHashMap<>();
+        proposta.put("cultivo", cultivo);
+        proposta.put("origem", "estimativas preliminares não verificadas");
+        proposta.put("estimativaNaoVerificada", true);
+        proposta.put("umidadeSoloEstimada", true);
+        proposta.put("observacao",
+                "Faixas preliminares de baixa confiança para lírio-aranha (Lycoris radiata): "
+                        + "temperatura 15–24 °C e umidade relativa do ar 40–60% são estimativas "
+                        + "não confirmadas por fonte técnica confiável. A umidade do solo 60–80% "
+                        + "é uma estimativa genérica na escala do sensor da estufa, não uma medida "
+                        + "universal nem porcentagem da capacidade de campo. Confira espécie, substrato "
+                        + "e resposta da planta; ao cadastrar, você assume o risco de usar esses valores. "
+                        + "O cultivo será cadastrado desabilitado.");
+        proposta.put("fontes", resultado.fontes().stream()
+                .filter(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), nomeCultivo))
+                .toList());
+        return new ResultadoIA(
+                resultado.texto() + "\n\nComo você pediu, preparei uma proposta preliminar para "
+                        + nomeCultivo + " com faixas estimadas e de baixa confiança. Os valores e o risco "
+                        + "estão identificados abaixo; nada será cadastrado sem sua confirmação explícita.",
                 resultado.arquivoUrl(),
                 resultado.arquivoNome(),
                 proposta,
@@ -747,20 +798,21 @@ public class ConsultaBotanicaService {
     private Map<String, Object> declaracaoPrepararCadastroCultivo() {
         return Map.of(
                 "name", "preparar_cadastro_cultivo",
-                "description", "Prepara uma proposta sem gravar no banco. Use valores informados pelo usuário ou verificados nas fontes. Para qualquer cultivo, quando não houver faixa específica para a escala do sensor de solo, pode usar 60–80 como estimativa genérica inicial, não específica da espécie, marcando umidadeSoloEstimada=true. A interface apresentará a ressalva e solicitará uma única confirmação antes de salvar desabilitado.",
+                "description", "Prepara uma proposta sem gravar no banco. Use valores informados pelo usuário ou verificados nas fontes. Se a pessoa pedir o cadastro e não houver valores confiáveis, pode apresentar faixas numéricas preliminares como estimativas de risco do usuário, marcando estimativaNaoVerificada=true e origem=estimada. Para qualquer cultivo, quando não houver faixa específica para a escala do sensor de solo, use 60–80 como estimativa genérica marcando umidadeSoloEstimada=true. A interface apresenta os valores e a ressalva para confirmação explícita antes de salvar desabilitado.",
                 "parameters", Map.of(
                         "type", "OBJECT",
-                        "properties", Map.of(
-                                "nome", Map.of("type", "STRING", "description", "Nome do cultivo."),
-                                "tipo", Map.of("type", "STRING", "description", "Tipo/categoria da planta."),
-                                "temperaturaMinima", Map.of("type", "NUMBER"),
-                                "temperaturaMaxima", Map.of("type", "NUMBER"),
-                                "umidadeMinima", Map.of("type", "NUMBER"),
-                                "umidadeMaxima", Map.of("type", "NUMBER"),
-                                "umidadeSoloMinima", Map.of("type", "NUMBER"),
-                                "umidadeSoloMaxima", Map.of("type", "NUMBER"),
-                                "origem", Map.of("type", "STRING", "enum", List.of("usuario", "externa", "estimada")),
-                                "umidadeSoloEstimada", Map.of("type", "BOOLEAN")),
+                        "properties", Map.ofEntries(
+                                Map.entry("nome", Map.of("type", "STRING", "description", "Nome do cultivo.")),
+                                Map.entry("tipo", Map.of("type", "STRING", "description", "Tipo/categoria da planta.")),
+                                Map.entry("temperaturaMinima", Map.of("type", "NUMBER")),
+                                Map.entry("temperaturaMaxima", Map.of("type", "NUMBER")),
+                                Map.entry("umidadeMinima", Map.of("type", "NUMBER")),
+                                Map.entry("umidadeMaxima", Map.of("type", "NUMBER")),
+                                Map.entry("umidadeSoloMinima", Map.of("type", "NUMBER")),
+                                Map.entry("umidadeSoloMaxima", Map.of("type", "NUMBER")),
+                                Map.entry("origem", Map.of("type", "STRING", "enum", List.of("usuario", "externa", "estimada"))),
+                                Map.entry("umidadeSoloEstimada", Map.of("type", "BOOLEAN")),
+                                Map.entry("estimativaNaoVerificada", Map.of("type", "BOOLEAN"))),
                         "required", List.of("nome", "tipo", "temperaturaMinima", "temperaturaMaxima",
                                 "umidadeMinima", "umidadeMaxima", "umidadeSoloMinima",
                                 "umidadeSoloMaxima", "origem")));
@@ -992,13 +1044,16 @@ public class ConsultaBotanicaService {
                 && "estimada".equalsIgnoreCase(origem)
                 && faixas.get("umidadeSoloMinima") == 60
                 && faixas.get("umidadeSoloMaxima") == 80;
+        boolean estimativaNaoVerificada = argumentos.path("estimativaNaoVerificada").asBoolean(false)
+                && "estimada".equalsIgnoreCase(origem);
         boolean demaisFaixasVerificadas = List.of(
                         "temperaturaMinima", "temperaturaMaxima", "umidadeMinima", "umidadeMaxima")
                 .stream()
                 .allMatch(campo -> contémNumero(dadosInformadosPeloUsuario, faixas.get(campo))
                         || fontesDoCultivo.stream()
                                 .anyMatch(fonte -> contémNumero(fonte.get("resumo"), faixas.get(campo))));
-        if (!valoresDoUsuario && !valoresDeFonte && !(soloEstimado && demaisFaixasVerificadas)) {
+        if (!valoresDoUsuario && !valoresDeFonte
+                && !(soloEstimado && demaisFaixasVerificadas) && !estimativaNaoVerificada) {
             return Map.of("erro", "Não consegui verificar todas as faixas na mensagem do usuário ou nas fontes consultadas. "
                     + "Não vou preparar um cadastro com valores sem fonte ou sem estimativa explicitamente identificada.");
         }
@@ -1015,18 +1070,28 @@ public class ConsultaBotanicaService {
         cultivo.put("habilitada", false);
         Map<String, Object> proposta = new LinkedHashMap<>();
         proposta.put("cultivo", cultivo);
-        proposta.put("origem", soloEstimado
+        proposta.put("origem", estimativaNaoVerificada
+                ? "estimativas preliminares não verificadas"
+                : soloEstimado
                 ? "temperatura e umidade do ar em fontes; umidade do solo estimada"
                 : valoresDoUsuario ? "valores informados por você" : "valores encontrados nas fontes");
+        if (estimativaNaoVerificada) {
+            proposta.put("estimativaNaoVerificada", true);
+            proposta.put("observacao",
+                    "Uma ou mais faixas desta proposta são estimativas preliminares não confirmadas "
+                            + "por fontes técnicas confiáveis. Confira espécie, condições da estufa e "
+                            + "substrato; ao cadastrar, você assume o risco de usar esses valores. "
+                            + "O cultivo será cadastrado desabilitado.");
+        }
         if (soloEstimado) {
             proposta.put("umidadeSoloEstimada", true);
-            proposta.put("observacao",
+            proposta.putIfAbsent("observacao",
                     "A faixa de solo 60–80% é uma estimativa genérica inicial na escala do sensor da estufa, "
                             + "não uma recomendação específica para esta espécie. Não equivale a 80% da capacidade "
                             + "de campo e deve ser validada com o sensor e o substrato. "
                             + "O cultivo será cadastrado desabilitado.");
         }
-        proposta.put("fontes", valoresDeFonte ? fontesDoCultivo : List.of());
+        proposta.put("fontes", valoresDeFonte || estimativaNaoVerificada ? fontesDoCultivo : List.of());
         if (soloEstimado) {
             proposta.put("fontes", fontesDoCultivo);
         }

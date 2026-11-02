@@ -76,6 +76,24 @@ class ConsultaBotanicaCadastroTest {
     }
 
     @Test
+    void prepararCadastro_permiteFaixasPreliminaresComRiscoConfirmadoPeloUsuario() throws Exception {
+        Map<String, Object> resultado = service.prepararCadastroCultivo(
+                argumentosEstimados(),
+                "Cadastre lírio-aranha.",
+                List.of());
+
+        assertTrue(resultado.containsKey("cadastroPendente"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposta = (Map<String, Object>) resultado.get("cadastroPendente");
+        assertEquals(true, proposta.get("estimativaNaoVerificada"));
+        assertTrue(proposta.get("observacao").toString().contains("assume o risco"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
+        assertEquals(false, cultivo.get("habilitada"));
+        verify(cultivoRepository, never()).save(org.mockito.ArgumentMatchers.any(Cultivo.class));
+    }
+
+    @Test
     void prepararCadastro_aceitaEstimativaDeSoloParaCultivoDiferenteDePepino() throws Exception {
         Map<String, String> fonte = Map.of(
                 "termoBusca", "lírio-da-paz",
@@ -150,6 +168,24 @@ class ConsultaBotanicaCadastroTest {
                   "umidadeSoloMaxima": 80,
                   "origem": "estimada",
                   "umidadeSoloEstimada": true
+                }
+                """);
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode argumentosEstimados() throws Exception {
+        return new ObjectMapper().readTree("""
+                {
+                  "nome": "Lírio-aranha",
+                  "tipo": "Planta ornamental",
+                  "temperaturaMinima": 15,
+                  "temperaturaMaxima": 24,
+                  "umidadeMinima": 40,
+                  "umidadeMaxima": 60,
+                  "umidadeSoloMinima": 60,
+                  "umidadeSoloMaxima": 80,
+                  "origem": "estimada",
+                  "umidadeSoloEstimada": true,
+                  "estimativaNaoVerificada": true
                 }
                 """);
     }
