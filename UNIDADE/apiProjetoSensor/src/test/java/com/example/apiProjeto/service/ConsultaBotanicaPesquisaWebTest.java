@@ -1,6 +1,7 @@
 package com.example.apiProjeto.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
@@ -28,6 +29,7 @@ class ConsultaBotanicaPesquisaWebTest {
     private final AtomicInteger chamadasAgente = new AtomicInteger();
     private final AtomicInteger chamadasWikipedia = new AtomicInteger();
     private boolean groundingRetornaFontes = true;
+    private boolean falhaRespostaFinal;
     private HttpServer server;
     private ConsultaBotanicaService service;
 
@@ -36,6 +38,7 @@ class ConsultaBotanicaPesquisaWebTest {
         chamadasAgente.set(0);
         chamadasWikipedia.set(0);
         groundingRetornaFontes = true;
+        falhaRespostaFinal = false;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/w/api.php", exchange -> {
             chamadasWikipedia.incrementAndGet();
@@ -106,6 +109,30 @@ class ConsultaBotanicaPesquisaWebTest {
         assertEquals(2, chamadasWikipedia.get());
     }
 
+    @Test
+    void usaFontesExternasQuandoProvedorFalhaNaRespostaFinal() {
+        falhaRespostaFinal = true;
+
+        Map<String, Object> resposta = service.consultar(
+                "pepino japonês", "Como cultivar pepino japonês?", null, null, List.of());
+
+        assertTrue(resposta.get("relatorio").toString().contains("informações em fontes externas"));
+        assertTrue(resposta.get("relatorio").toString().contains("A Embrapa informa"));
+        JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
+        assertEquals(1, fontes.size());
+        assertEquals("pepino japonês", fontes.path(0).path("termoBusca").asText());
+    }
+
+    @Test
+    void preservaAnaliseQuandoPedidoDeCadastroNaoTemFaixasSuficientes() {
+        Map<String, Object> resposta = service.consultar(
+                "pepino", "Quero cadastrar pepino.", null, null, List.of());
+
+        String relatorio = resposta.get("relatorio").toString();
+        assertTrue(relatorio.contains("Resposta final baseada na fonte."));
+        assertTrue(relatorio.contains("Não foi preparado nem salvo um cadastro."));
+    }
+
     private void responderGemini(HttpExchange exchange) throws IOException {
         JsonNode requisicao = objectMapper.readTree(exchange.getRequestBody().readAllBytes());
         String ferramentas = requisicao.path("tools").toString();
@@ -139,6 +166,13 @@ class ConsultaBotanicaPesquisaWebTest {
         }
 
         if (chamadasAgente.getAndIncrement() == 0) {
+            if (falhaRespostaFinal) {
+                responder(exchange, 503, """
+                        {"error":{"message":"Serviço de IA temporariamente indisponível."}}
+                        """);
+                return;
+            }
+
             responder(exchange, """
                     {
                       "candidates": [{
@@ -170,9 +204,13 @@ class ConsultaBotanicaPesquisaWebTest {
     }
 
     private void responder(HttpExchange exchange, String corpo) throws IOException {
+        responder(exchange, 200, corpo);
+    }
+
+    private void responder(HttpExchange exchange, int status, String corpo) throws IOException {
         byte[] bytes = corpo.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();
     }

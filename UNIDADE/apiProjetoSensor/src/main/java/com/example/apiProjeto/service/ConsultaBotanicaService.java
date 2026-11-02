@@ -105,9 +105,9 @@ public class ConsultaBotanicaService {
             String textoResposta = resultadoIA.texto();
             if (solicitaCadastro(pergunta)) {
                 textoResposta = resultadoIA.cadastroPendente() == null
-                        ? "Não foi preparado nem salvo um cadastro. Não consegui confirmar todas as faixas "
-                                + "de temperatura, umidade do ar e umidade do solo. Informe os valores ou peça "
-                                + "uma pesquisa externa com fontes verificáveis."
+                        ? textoResposta + "\n\nNão foi preparado nem salvo um cadastro. "
+                                + "A análise acima pode ajudar, mas ainda faltam faixas verificáveis "
+                                + "de temperatura, umidade do ar e umidade do solo."
                         : textoResposta + "\n\nA proposta ainda não foi salva; confirme no botão abaixo.";
             }
             resposta.put("relatorio", textoResposta);
@@ -306,10 +306,34 @@ public class ConsultaBotanicaService {
             }
                         return gerarComOpenAi(prompt, dadosInformadosPeloUsuario);
         } catch (Exception erro) {
-                        LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
-                        return new ResultadoIA(
-                                "Não consegui concluir a consulta agora. Tente novamente em instantes.",
-                                null, null, null, List.of());
+            LOGGER.log(System.Logger.Level.ERROR, "Falha ao consultar o agente da estufa.", erro);
+            String termoBusca = planta == null || planta.isBlank() ? pergunta : planta;
+            try {
+                List<Map<String, String>> fontes = buscarFontes(termoBusca).stream()
+                        .map(fonte -> {
+                            Map<String, String> fonteComTermo = new LinkedHashMap<>(fonte);
+                            fonteComTermo.put("termoBusca", termoBusca);
+                            return Map.copyOf(fonteComTermo);
+                        })
+                        .toList();
+                if (!fontes.isEmpty()) {
+                    String resumo = fontes.stream()
+                            .map(fonte -> fonte.get("titulo") + ": " + fonte.get("resumo"))
+                            .reduce((primeira, proxima) -> primeira + "\n\n" + proxima)
+                            .orElse("");
+                    return new ResultadoIA(
+                            "Não consegui gerar a análise completa agora, mas encontrei estas informações "
+                                    + "em fontes externas:\n\n" + resumo,
+                            null, null, null, fontes);
+                }
+            } catch (Exception erroPesquisa) {
+                LOGGER.log(System.Logger.Level.WARNING,
+                        "A consulta de contingência a fontes externas também falhou.", erroPesquisa);
+            }
+            return new ResultadoIA(
+                    "Não consegui concluir a consulta nem localizar fontes externas verificáveis agora. "
+                            + "Tente novamente em instantes.",
+                    null, null, null, List.of());
         }
     }
 
@@ -927,7 +951,12 @@ public class ConsultaBotanicaService {
                         builder.header("Authorization", authorization);
                 }
                 HttpRequest request = builder.POST(HttpRequest.BodyPublishers.ofString(body)).build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString()).body();
+        HttpResponse<String> resposta = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (resposta.statusCode() < 200 || resposta.statusCode() >= 300) {
+            throw new IllegalStateException("O provedor de IA respondeu HTTP "
+                    + resposta.statusCode() + ".");
+        }
+        return resposta.body();
     }
 
     private String limparHtml(String texto) {
