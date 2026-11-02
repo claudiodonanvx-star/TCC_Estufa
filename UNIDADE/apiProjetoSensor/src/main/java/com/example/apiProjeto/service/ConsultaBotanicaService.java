@@ -53,7 +53,7 @@ public class ConsultaBotanicaService {
             "nos", "o", "os", "para", "por", "poderia", "preciso", "quais", "quero", "saber", "sei",
             "sao", "sobre", "um", "uma", "valores");
     private static final Set<String> TERMOS_BOTANICOS = Set.of(
-            "adubacao", "colheita", "cultivar", "cultivo", "doenca", "doencas", "folha", "fruto",
+            "adubacao", "colheita", "cultivar", "cultivo", "doenca", "doencas", "flor", "flores", "folha", "fruto",
             "germinacao", "horta", "irrigacao", "muda", "plantar", "planta", "plantas", "plantio",
             "praga", "pragas", "solo", "temperatura", "umidade", "pepino", "tomate", "alface",
             "abacaxi", "morango", "milho", "feijao", "pimenta", "manjericao", "lirio", "aranha");
@@ -269,14 +269,20 @@ public class ConsultaBotanicaService {
         if (nomeAposPronome.matches()) {
             return nomeAposPronome.group(1).replaceAll("[?!.]+$", "").trim();
         }
-        Matcher nomeAposCadastro = Pattern.compile(
-                "(?i).*\\b(?:cadastrar?|registrar?)\\s+(?:o|a)?\\s*"
-                        + "([\\p{L}][\\p{L}-]*(?:\\s+(?!(?:no|na|nos|nas|mas|e|por|para|poderia)\\b)"
-                        + "[\\p{L}][\\p{L}-]*){0,3}?)"
-                        + "(?=\\s+(?:no|na|nos|nas|mas|e|por|para|poderia)\\b|[,?.!]|$).*")
+        Matcher inicioNomeCadastro = Pattern.compile(
+                "(?i).*?\\b(?:cadastrar?|registrar?)\\s+(?:(?:o|a|um|uma)\\s+)?")
                 .matcher(texto);
-        if (nomeAposCadastro.matches()) {
-            return nomeAposCadastro.group(1).trim();
+        if (inicioNomeCadastro.find()) {
+            String nome = texto.substring(inicioNomeCadastro.end()).trim();
+            Matcher fimNomeCadastro = Pattern.compile(
+                    "(?i)\\s*\\(|[,?.!]|\\s+(?:no|na|nos|nas|mas|e|por|para|poderia|não|nao)\\b")
+                    .matcher(nome);
+            if (fimNomeCadastro.find()) {
+                nome = nome.substring(0, fimNomeCadastro.start()).trim();
+            }
+            if (!nome.isBlank()) {
+                return nome;
+            }
         }
         return variantesTermoBusca(texto).stream().findFirst().orElse(texto);
     }
@@ -488,7 +494,7 @@ public class ConsultaBotanicaService {
         }
 
         if (!normalizarTexto(nomeCultivo).contains("pepino")) {
-            return completarEstimativaLirioAranha(nomeCultivo, resultado);
+            return completarEstimativaCultivo(nomeCultivo, resultado);
         }
 
         List<Map<String, String>> fontesDoPepino = resultado.fontes().stream()
@@ -534,21 +540,27 @@ public class ConsultaBotanicaService {
                 resultado.fontes());
     }
 
-    private ResultadoIA completarEstimativaLirioAranha(String nomeCultivo, ResultadoIA resultado) {
+    private ResultadoIA completarEstimativaCultivo(String nomeCultivo, ResultadoIA resultado) {
         String nomeNormalizado = normalizarTexto(nomeCultivo);
-        if (!(nomeNormalizado.contains("lirio aranha") || nomeNormalizado.contains("lycoris"))
+        if (nomeNormalizado.isBlank()
                 || cultivoRepository.findAll().stream()
                         .anyMatch(cultivo -> normalizarTexto(cultivo.getNome()).equals(nomeNormalizado))) {
             return resultado;
         }
 
+        boolean lirioAranha = nomeNormalizado.contains("lirio aranha")
+                || nomeNormalizado.contains("lycoris");
+        double temperaturaMinima = 15;
+        double temperaturaMaxima = lirioAranha ? 24 : 30;
+        double umidadeMinima = 40;
+        double umidadeMaxima = lirioAranha ? 60 : 70;
         Map<String, Object> cultivo = new LinkedHashMap<>();
         cultivo.put("nome", nomeCultivo);
-        cultivo.put("tipo", "Planta ornamental");
-        cultivo.put("temperaturaMinima", 15);
-        cultivo.put("temperaturaMaxima", 24);
-        cultivo.put("umidadeMinima", 40);
-        cultivo.put("umidadeMaxima", 60);
+        cultivo.put("tipo", lirioAranha ? "Planta ornamental" : "Cultivo (categoria não confirmada)");
+        cultivo.put("temperaturaMinima", temperaturaMinima);
+        cultivo.put("temperaturaMaxima", temperaturaMaxima);
+        cultivo.put("umidadeMinima", umidadeMinima);
+        cultivo.put("umidadeMaxima", umidadeMaxima);
         cultivo.put("umidadeSoloMinima", 60);
         cultivo.put("umidadeSoloMaxima", 80);
         cultivo.put("habilitada", false);
@@ -558,21 +570,33 @@ public class ConsultaBotanicaService {
         proposta.put("origem", "estimativas preliminares não verificadas");
         proposta.put("estimativaNaoVerificada", true);
         proposta.put("umidadeSoloEstimada", true);
-        proposta.put("observacao",
-                "Faixas preliminares de baixa confiança para lírio-aranha (Lycoris radiata): "
+        proposta.put("observacao", lirioAranha
+                ? "Faixas preliminares de baixa confiança para lírio-aranha (Lycoris radiata): "
                         + "temperatura 15–24 °C e umidade relativa do ar 40–60% são estimativas "
                         + "não confirmadas por fonte técnica confiável. A umidade do solo 60–80% "
                         + "é uma estimativa genérica na escala do sensor da estufa, não uma medida "
                         + "universal nem porcentagem da capacidade de campo. Confira espécie, substrato "
                         + "e resposta da planta; ao cadastrar, você assume o risco de usar esses valores. "
-                        + "O cultivo será cadastrado desabilitado.");
+                        + "O cultivo será cadastrado desabilitado."
+                : "Não foram encontrados valores confiáveis para esta espécie. Como você pediu uma proposta, "
+                        + "temperatura 15–30 °C e umidade relativa do ar 40–70% são faixas genéricas "
+                        + "preliminares de baixa confiança, não específicas da planta e não confirmadas "
+                        + "por fonte técnica. A umidade do solo 60–80% é uma estimativa genérica na escala "
+                        + "do sensor, não uma medida universal nem porcentagem da capacidade de campo. "
+                        + "Confira espécie, substrato e resposta da planta; ao cadastrar, você assume o risco "
+                        + "de usar esses valores. O cultivo será cadastrado desabilitado.");
         proposta.put("fontes", resultado.fontes().stream()
                 .filter(fonte -> buscaCorrespondeAoCultivo(fonte.get("termoBusca"), nomeCultivo))
                 .toList());
         return new ResultadoIA(
-                resultado.texto() + "\n\nComo você pediu, preparei uma proposta preliminar para "
-                        + nomeCultivo + " com faixas estimadas e de baixa confiança. Os valores e o risco "
-                        + "estão identificados abaixo; nada será cadastrado sem sua confirmação explícita.",
+                (resultado.fontes().isEmpty()
+                        ? "A pesquisa não encontrou fontes externas confiáveis com faixas confirmadas para "
+                        : "As fontes consultadas não confirmaram todas as faixas numéricas necessárias para ")
+                        + nomeCultivo + ". Como você pediu, preparei uma proposta com "
+                        + (lirioAranha ? "estimativas preliminares específicas, mas não verificadas"
+                                : "estimativas genéricas de baixa confiança, não específicas desta planta")
+                        + ". Elas não são fatos nem recomendações técnicas comprovadas. Confira os valores e "
+                        + "assuma o risco somente se decidir confirmar o cadastro abaixo.",
                 resultado.arquivoUrl(),
                 resultado.arquivoNome(),
                 proposta,

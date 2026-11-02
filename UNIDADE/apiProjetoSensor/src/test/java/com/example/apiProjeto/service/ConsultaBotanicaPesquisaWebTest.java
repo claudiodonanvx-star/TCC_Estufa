@@ -237,15 +237,46 @@ class ConsultaBotanicaPesquisaWebTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
         assertEquals("lírio aranha", cultivo.get("nome"));
-        assertEquals(15, cultivo.get("temperaturaMinima"));
-        assertEquals(24, cultivo.get("temperaturaMaxima"));
-        assertEquals(40, cultivo.get("umidadeMinima"));
-        assertEquals(60, cultivo.get("umidadeMaxima"));
+        assertEquals(15.0, cultivo.get("temperaturaMinima"));
+        assertEquals(24.0, cultivo.get("temperaturaMaxima"));
+        assertEquals(40.0, cultivo.get("umidadeMinima"));
+        assertEquals(60.0, cultivo.get("umidadeMaxima"));
         assertEquals(60, cultivo.get("umidadeSoloMinima"));
         assertEquals(80, cultivo.get("umidadeSoloMaxima"));
         assertTrue(proposta.get("observacao").toString().contains("baixa confiança"));
         assertTrue(proposta.get("observacao").toString().contains("assume o risco"));
-        assertTrue(resposta.get("relatorio").toString().contains("proposta preliminar"));
+        assertTrue(resposta.get("relatorio").toString().contains("preparei uma proposta"));
+    }
+
+    @Test
+    void preparaPropostaGenericaDeFlorSemFontesConfiaveis() {
+        agenteChamaFerramenta = false;
+        groundingRetornaFontes = false;
+
+        Map<String, Object> resposta = service.consultar(
+                "",
+                "Quero cadastrar flor-de-cera (Hoya carnosa) na estufa, mas não conheço as condições.",
+                null,
+                null,
+                List.of());
+
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("planta flor-de-cera"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposta =
+                (Map<String, Object>) resposta.get("cadastroPendente");
+        assertTrue(proposta != null);
+        assertEquals(true, proposta.get("estimativaNaoVerificada"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cultivo = (Map<String, Object>) proposta.get("cultivo");
+        assertEquals("flor-de-cera", cultivo.get("nome"));
+        assertEquals(15.0, cultivo.get("temperaturaMinima"));
+        assertEquals(30.0, cultivo.get("temperaturaMaxima"));
+        assertEquals(40.0, cultivo.get("umidadeMinima"));
+        assertEquals(70.0, cultivo.get("umidadeMaxima"));
+        assertEquals(60, cultivo.get("umidadeSoloMinima"));
+        assertEquals(80, cultivo.get("umidadeSoloMaxima"));
+        assertTrue(proposta.get("observacao").toString().contains("genéricas"));
+        assertTrue(proposta.get("observacao").toString().contains("assume o risco"));
     }
 
     @Test
