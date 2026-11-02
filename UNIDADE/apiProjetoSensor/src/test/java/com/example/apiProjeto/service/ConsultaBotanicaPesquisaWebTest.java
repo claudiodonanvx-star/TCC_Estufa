@@ -32,6 +32,7 @@ class ConsultaBotanicaPesquisaWebTest {
     private final AtomicReference<String> ultimaBuscaWikipedia = new AtomicReference<>("");
     private final AtomicReference<String> solicitacaoPesquisaGoogle = new AtomicReference<>("");
     private boolean groundingRetornaFontes = true;
+    private boolean groundingSemTrechos;
     private boolean falhaRespostaFinal;
     private boolean agenteChamaFerramenta = true;
     private HttpServer server;
@@ -44,6 +45,7 @@ class ConsultaBotanicaPesquisaWebTest {
         ultimaBuscaWikipedia.set("");
         solicitacaoPesquisaGoogle.set("");
         groundingRetornaFontes = true;
+        groundingSemTrechos = false;
         falhaRespostaFinal = false;
         agenteChamaFerramenta = true;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -191,6 +193,30 @@ class ConsultaBotanicaPesquisaWebTest {
     }
 
     @Test
+    void buscaLirioAranhaSemCampoPlantaEExibeLinksMesmoSemTrechosDeCitacao() {
+        agenteChamaFerramenta = false;
+        groundingSemTrechos = true;
+
+        Map<String, Object> resposta = service.consultar(
+                "",
+                "Eu quero cadastrar lírio aranha no sistema, mas não sei direito as infos, "
+                        + "poderia pesquisar os requisitos dela para a estufa por favor?",
+                null,
+                null,
+                List.of());
+
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("planta lírio aranha"));
+        assertTrue(solicitacaoPesquisaGoogle.get().contains("nomes comuns em outros idiomas"));
+        JsonNode fontes = objectMapper.valueToTree(resposta.get("fontes"));
+        assertEquals(1, fontes.size());
+        assertEquals("lírio aranha", fontes.path(0).path("termoBusca").asText());
+        assertEquals("https://plants.ces.ncsu.edu/plants/lycoris-radiata/",
+                fontes.path(0).path("url").asText());
+        assertEquals("", fontes.path(0).path("resumo").asText());
+        assertEquals(0, chamadasWikipedia.get());
+    }
+
+    @Test
     void usaFontesExternasQuandoProvedorFalhaNaRespostaFinal() {
         falhaRespostaFinal = true;
         groundingRetornaFontes = false;
@@ -220,6 +246,24 @@ class ConsultaBotanicaPesquisaWebTest {
         String ferramentas = requisicao.path("tools").toString();
         if (ferramentas.contains("google_search")) {
             solicitacaoPesquisaGoogle.set(requisicao.toString());
+            if (groundingSemTrechos) {
+                responder(exchange, """
+                        {
+                          "candidates": [{
+                            "content": {"role":"model","parts":[{"text":"A página da extensão universitária descreve cultivo em solo rico, úmido e bem drenado."}]},
+                            "groundingMetadata": {
+                              "groundingChunks": [{
+                                "web": {
+                                  "title":"Red spider lily - NC State Extension",
+                                  "uri":"https://plants.ces.ncsu.edu/plants/lycoris-radiata/"
+                                }
+                              }]
+                            }
+                          }]
+                        }
+                        """);
+                return;
+            }
             boolean consultaPepino = requisicao.toString().toLowerCase().contains("pepino");
             if (consultaPepino && groundingRetornaFontes) {
                 responder(exchange, """

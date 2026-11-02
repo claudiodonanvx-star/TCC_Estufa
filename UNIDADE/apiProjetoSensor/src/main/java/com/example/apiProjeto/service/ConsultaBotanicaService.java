@@ -56,7 +56,7 @@ public class ConsultaBotanicaService {
             "adubacao", "colheita", "cultivar", "cultivo", "doenca", "doencas", "folha", "fruto",
             "germinacao", "horta", "irrigacao", "muda", "plantar", "planta", "plantas", "plantio",
             "praga", "pragas", "solo", "temperatura", "umidade", "pepino", "tomate", "alface",
-            "abacaxi", "morango", "milho", "feijao", "pimenta", "manjericao");
+            "abacaxi", "morango", "milho", "feijao", "pimenta", "manjericao", "lirio", "aranha");
     private static final Set<String> TERMOS_OPERACIONAIS = Set.of(
             "alerta", "atuador", "historico", "leitura", "leituras", "relatorio", "sensor", "sensores");
 
@@ -192,6 +192,8 @@ public class ConsultaBotanicaService {
     private List<Map<String, String>> buscarFontesGoogle(String termo, String pergunta) throws Exception {
         String endpoint = endpointGemini();
         String prompt = "Use a Busca Google para pesquisar especificamente a planta " + termo + ". "
+                + "Se o nome comum puder identificar mais de uma espécie, mantenha cada espécie separada e informe "
+                + "o nome científico indicado pela fonte; pesquise também os nomes comuns em outros idiomas quando útil. "
                 + "Pesquise os três tópicos como buscas distintas: (1) faixas mínima e máxima de temperatura "
                 + "para cultivo e, se disponível, diferenças entre dia/noite e fases; "
                 + "(2) faixa mínima e máxima de umidade relativa do ar; "
@@ -244,7 +246,6 @@ public class ConsultaBotanicaService {
             }
         }
         return fontesPorIndice.values().stream()
-                .filter(fonte -> !fonte.get("resumo").isBlank())
                 .limit(MAXIMO_FONTES_EXTERNAS)
                 .map(Map::copyOf)
                 .toList();
@@ -267,6 +268,15 @@ public class ConsultaBotanicaService {
                 "(?i).*\\b(?:do|da|de)\\s+(?:meu?|minha?)\\s+(.+)$").matcher(texto);
         if (nomeAposPronome.matches()) {
             return nomeAposPronome.group(1).replaceAll("[?!.]+$", "").trim();
+        }
+        Matcher nomeAposCadastro = Pattern.compile(
+                "(?i).*\\b(?:cadastrar?|registrar?)\\s+(?:o|a)?\\s*"
+                        + "([\\p{L}][\\p{L}-]*(?:\\s+(?!(?:no|na|nos|nas|mas|e|por|para|poderia)\\b)"
+                        + "[\\p{L}][\\p{L}-]*){0,3}?)"
+                        + "(?=\\s+(?:no|na|nos|nas|mas|e|por|para|poderia)\\b|[,?.!]|$).*")
+                .matcher(texto);
+        if (nomeAposCadastro.matches()) {
+            return nomeAposCadastro.group(1).trim();
         }
         return variantesTermoBusca(texto).stream().findFirst().orElse(texto);
     }
@@ -391,6 +401,9 @@ public class ConsultaBotanicaService {
                                         + objectMapper.writeValueAsString(fontesExternas)
                                         + ". Se a lista estiver vazia, informe que não foi possível verificar fontes externas "
                                         + "e não invente recomendações ou faixas numéricas. "
+                                        + "Se houver fonte com título e URL, mas sem trecho de citação, mostre-a como referência "
+                                        + "e informe que o conteúdo não foi confirmado; não diga que a lista está vazia nem atribua "
+                                        + "números ou afirmações específicas a esse link. "
                                         + "Para pedidos de arquivo CSV ou PDF, use gerar_relatorio_arquivo e informe o período pedido; "
                                         + "períodos relativos como 'últimos 5 dias' devem ser convertidos em datas ISO. "
                                         + "Nunca invente valores como se fossem fato ou como se fossem citados por uma fonte. "
