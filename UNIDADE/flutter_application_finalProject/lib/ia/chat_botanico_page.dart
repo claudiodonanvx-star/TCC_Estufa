@@ -22,6 +22,16 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   final _umidadeController = TextEditingController();
   final _temperaturaController = TextEditingController();
   final _scrollController = ScrollController();
+  late final TextEditingController _inicioRelatorioController;
+  late final TextEditingController _fimRelatorioController;
+  String _tabelaRelatorio = 'sensor_data';
+  final Set<String> _secoesRelatorio = {
+    'resumo',
+    'graficos',
+    'saude',
+    'alertas',
+    'recomendacoes',
+  };
   final List<_MensagemChat> _mensagens = [
     const _MensagemChat(
       texto:
@@ -35,12 +45,27 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   bool _carregando = false;
 
   @override
+  void initState() {
+    super.initState();
+    final hoje = DateTime.now();
+    final inicio = hoje.subtract(const Duration(days: 30));
+    _inicioRelatorioController = TextEditingController(
+      text: inicio.toIso8601String().substring(0, 10),
+    );
+    _fimRelatorioController = TextEditingController(
+      text: hoje.toIso8601String().substring(0, 10),
+    );
+  }
+
+  @override
   void dispose() {
     _perguntaController.dispose();
     _plantaController.dispose();
     _umidadeController.dispose();
     _temperaturaController.dispose();
     _scrollController.dispose();
+    _inicioRelatorioController.dispose();
+    _fimRelatorioController.dispose();
     super.dispose();
   }
 
@@ -114,16 +139,15 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
           'temperaturaAtual': double.tryParse(
             _temperaturaController.text.trim(),
           ),
-          'historico':
-              _mensagens
-                  .skip(_mensagens.length > 12 ? _mensagens.length - 12 : 0)
-                  .map(
-                    (mensagem) => {
-                      'papel': mensagem.doUsuario ? 'usuario' : 'agente',
-                      'texto': mensagem.texto,
-                    },
-                  )
-                  .toList(),
+          'historico': _mensagens
+              .skip(_mensagens.length > 12 ? _mensagens.length - 12 : 0)
+              .map(
+                (mensagem) => {
+                  'papel': mensagem.doUsuario ? 'usuario' : 'agente',
+                  'texto': mensagem.texto,
+                },
+              )
+              .toList(),
         }),
       );
       Map<String, dynamic> dados = {};
@@ -141,18 +165,16 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
               : dados['mensagem'] ?? 'A API recusou a consulta.',
         );
       }
-      final relatorio =
-          dados['relatorio']?.toString() ??
+      final relatorio = dados['relatorio']?.toString() ??
           dados['analiseLocal']?.toString() ??
           'Não foi possível gerar um relatório.';
-      final fontes =
-          (dados['fontes'] is List
-                  ? dados['fontes'] as List
-                  : const <dynamic>[])
-              .whereType<Map>()
-              .map((fonte) => fonte['titulo']?.toString())
-              .whereType<String>()
-              .toList();
+      final fontes = (dados['fontes'] is List
+              ? dados['fontes'] as List
+              : const <dynamic>[])
+          .whereType<Map>()
+          .map((fonte) => fonte['titulo']?.toString())
+          .whereType<String>()
+          .toList();
       final complemento =
           fontes.isEmpty ? '' : '\n\nFontes: ${fontes.join(', ')}.';
       final arquivoPath = dados['arquivoUrl']?.toString();
@@ -160,13 +182,12 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
       if (arquivoPath != null && arquivoPath.startsWith('/')) {
         arquivoUri = Uri.parse(baseUrl).resolve(arquivoPath);
       }
-      final fontesExternas =
-          (dados['fontes'] is List
-                  ? dados['fontes'] as List
-                  : const <dynamic>[])
-              .whereType<Map>()
-              .map((fonte) => Map<String, dynamic>.from(fonte))
-              .toList();
+      final fontesExternas = (dados['fontes'] is List
+              ? dados['fontes'] as List
+              : const <dynamic>[])
+          .whereType<Map>()
+          .map((fonte) => Map<String, dynamic>.from(fonte))
+          .toList();
       final propostaCadastro = _extrairPropostaCadastro(dados);
       if (mounted) {
         setState(() {
@@ -204,21 +225,20 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
   Future<bool> _confirmarFerramenta(FerramentaInterna ferramenta) async {
     return await showDialog<bool>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Confirmar comando'),
-                content: Text(ferramenta.descricaoConfirmacao),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancelar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Confirmar'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Confirmar comando'),
+            content: Text(ferramenta.descricaoConfirmacao),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
               ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
         ) ??
         false;
   }
@@ -247,19 +267,17 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
             itemBuilder: (context, index) {
               final mensagem = _mensagens[index];
               return Align(
-                alignment:
-                    mensagem.doUsuario
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
+                alignment: mensagem.doUsuario
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 340),
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color:
-                        mensagem.doUsuario
-                            ? const Color(0xFF0E7D63)
-                            : Colors.white,
+                    color: mensagem.doUsuario
+                        ? const Color(0xFF0E7D63)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFD4EBDD)),
                   ),
@@ -270,10 +288,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                       Text(
                         mensagem.texto,
                         style: TextStyle(
-                          color:
-                              mensagem.doUsuario
-                                  ? Colors.white
-                                  : const Color(0xFF113128),
+                          color: mensagem.doUsuario
+                              ? Colors.white
+                              : const Color(0xFF113128),
                           height: 1.35,
                         ),
                       ),
@@ -292,8 +309,8 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                         const Text('Fontes externas consultadas:'),
                         for (final fonte in mensagem.fontes)
                           TextButton(
-                            onPressed:
-                                () => _abrirFonte(fonte['url']?.toString()),
+                            onPressed: () =>
+                                _abrirFonte(fonte['url']?.toString()),
                             child: Text(fonte['titulo']?.toString() ?? 'Fonte'),
                           ),
                       ],
@@ -309,31 +326,29 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed:
-                                  _cadastrosProcessando.contains(index)
-                                      ? null
-                                      : () =>
-                                          _confirmarCadastro(index, mensagem),
+                              onPressed: _cadastrosProcessando.contains(index)
+                                  ? null
+                                  : () => _confirmarCadastro(index, mensagem),
                               icon: const Icon(Icons.save_outlined),
                               label: Text(
-                                mensagem.cadastroPendente?['estimativaNaoVerificada'] ==
+                                mensagem.cadastroPendente?[
+                                            'estimativaNaoVerificada'] ==
                                         true
                                     ? 'Assumir o risco e cadastrar'
-                                    : mensagem
-                                            .cadastroPendente?['umidadeSoloEstimada'] ==
-                                        true
-                                    ? 'Aceitar estimativa e cadastrar'
-                                    : 'Confirmar e salvar cultivo',
+                                    : mensagem.cadastroPendente?[
+                                                'umidadeSoloEstimada'] ==
+                                            true
+                                        ? 'Aceitar estimativa e cadastrar'
+                                        : 'Confirmar e salvar cultivo',
                               ),
                             ),
                           ),
                           SizedBox(
                             width: double.infinity,
                             child: TextButton(
-                              onPressed:
-                                  _cadastrosProcessando.contains(index)
-                                      ? null
-                                      : () => setState(
+                              onPressed: _cadastrosProcessando.contains(index)
+                                  ? null
+                                  : () => setState(
                                         () => _cadastrosCancelados.add(index),
                                       ),
                               child: const Text('Cancelar proposta'),
@@ -397,6 +412,49 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    tooltip: 'Relatorio personalizado',
+                    onSelected: (formato) =>
+                        _abrirConfiguracaoRelatorio(formato),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'pdf',
+                        child: ListTile(
+                          leading: Icon(Icons.picture_as_pdf_outlined),
+                          title: Text('Relatorio personalizado'),
+                          subtitle: Text(
+                            'PDF com graficos e recomendacoes',
+                          ),
+                          dense: true,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'csv',
+                        child: ListTile(
+                          leading: Icon(Icons.table_chart_outlined),
+                          title: Text('Relatorio personalizado'),
+                          subtitle: Text(
+                            'CSV com dados consolidados para criar graficos no Excel',
+                          ),
+                          dense: true,
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE7F5EC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFB6DCCA)),
+                      ),
+                      child: const Icon(
+                        Icons.description_outlined,
+                        color: Color(0xFF0E7D63),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton.filled(
                     tooltip: 'Enviar pergunta',
                     onPressed: _carregando ? null : _enviarPergunta,
@@ -409,6 +467,319 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _abrirConfiguracaoRelatorio(String formato) async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    formato == 'pdf'
+                        ? Icons.picture_as_pdf_outlined
+                        : Icons.table_chart_outlined,
+                    color: const Color(0xFF0E7D63),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formato == 'pdf'
+                        ? 'Relatório personalizado em PDF'
+                        : 'Relatório personalizado em CSV',
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Conteúdo do relatório',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: [
+                          _checkboxSecao(
+                            setDialogState,
+                            'resumo',
+                            'Resumo executivo',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'graficos',
+                            'Gráficos',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'temperatura',
+                            'Temperatura',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'umidade',
+                            'Umidade do ar',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'solo',
+                            'Umidade do solo',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'saude',
+                            'Saúde da planta',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'alertas',
+                            'Alertas e erros',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'tendencias',
+                            'Tendências',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'recomendacoes',
+                            'Recomendações',
+                          ),
+                          _checkboxSecao(
+                            setDialogState,
+                            'dados',
+                            'Dados detalhados',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _tabelaRelatorio,
+                        decoration: const InputDecoration(
+                          labelText: 'Fonte dos dados',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'sensor_data',
+                            child: Text('Sensores — leituras detalhadas'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'relatorio_diario',
+                            child: Text(
+                              'Histórico consolidado — médias diárias',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'alertas',
+                            child: Text('Alertas gerados pela unidade'),
+                          ),
+                        ],
+                        onChanged: (valor) {
+                          setDialogState(() {
+                            _tabelaRelatorio = valor ?? 'sensor_data';
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _inicioRelatorioController,
+                              decoration: const InputDecoration(
+                                labelText: 'Início AAAA-MM-DD',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _fimRelatorioController,
+                              decoration: const InputDecoration(
+                                labelText: 'Fim AAAA-MM-DD',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () {
+                              final hoje = DateTime.now();
+                              final inicio = hoje.subtract(
+                                const Duration(days: 6),
+                              );
+                              setDialogState(() {
+                                _inicioRelatorioController.text =
+                                    inicio.toIso8601String().substring(0, 10);
+                                _fimRelatorioController.text =
+                                    hoje.toIso8601String().substring(0, 10);
+                              });
+                            },
+                            child: const Text('Últimos 7 dias'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () {
+                              final hoje = DateTime.now();
+                              final inicio = hoje.subtract(
+                                const Duration(days: 29),
+                              );
+                              setDialogState(() {
+                                _inicioRelatorioController.text =
+                                    inicio.toIso8601String().substring(0, 10);
+                                _fimRelatorioController.text =
+                                    hoje.toIso8601String().substring(0, 10);
+                              });
+                            },
+                            child: const Text('Últimos 30 dias'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () {
+                              final hoje = DateTime.now();
+                              final inicio = hoje.subtract(
+                                const Duration(days: 89),
+                              );
+                              setDialogState(() {
+                                _inicioRelatorioController.text =
+                                    inicio.toIso8601String().substring(0, 10);
+                                _fimRelatorioController.text =
+                                    hoje.toIso8601String().substring(0, 10);
+                              });
+                            },
+                            child: const Text('Trimestre'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () {
+                              final hoje = DateTime.now();
+                              final inicio = hoje.subtract(
+                                const Duration(days: 364),
+                              );
+                              setDialogState(() {
+                                _inicioRelatorioController.text =
+                                    inicio.toIso8601String().substring(0, 10);
+                                _fimRelatorioController.text =
+                                    hoje.toIso8601String().substring(0, 10);
+                              });
+                            },
+                            child: const Text('Último ano'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  icon: const Icon(Icons.file_download_outlined),
+                  label: Text('Gerar ${formato.toUpperCase()}'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmou == true) {
+      await _gerarRelatorioPersonalizado(formato);
+    }
+  }
+
+  Future<void> _gerarRelatorioPersonalizado(String formato) async {
+    final inicio = _inicioRelatorioController.text.trim();
+    final fim = _fimRelatorioController.text.trim();
+    final inicioData = DateTime.tryParse(inicio);
+    final fimData = DateTime.tryParse(fim);
+
+    if (inicioData == null || fimData == null || fimData.isBefore(inicioData)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um período válido no formato AAAA-MM-DD.'),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _mensagens.add(
+        _MensagemChat(
+          texto:
+              'Gerar relatório personalizado ${formato.toUpperCase()}, de $inicio até $fim.',
+          doUsuario: true,
+        ),
+      );
+      _carregando = true;
+    });
+    _rolarParaFim();
+
+    try {
+      final baseUrl = await ApiSettings.obterUrlApi();
+      final parametros = Uri(
+        queryParameters: {
+          'tabela': _tabelaRelatorio,
+          'inicio': inicio,
+          'fim': fim,
+          'formato': formato,
+          'template': 'personalizado',
+          'secoes': _secoesRelatorio.join(','),
+        },
+      );
+      final uri = Uri.parse(
+        baseUrl,
+      ).resolve('/api/ia/relatorio${parametros.toString()}');
+      if (mounted) {
+        setState(() {
+          final nome =
+              'estufa_${_tabelaRelatorio}_personalizado_${inicio}_a_$fim.$formato';
+          _mensagens.add(
+            _MensagemChat(
+              texto:
+                  'Relatório profissional pronto. Inclui resumo, indicadores, recomendações'
+                  '${formato == 'pdf' ? ', gráficos da evolução e tabela consolidada.' : ' e séries organizadas para planilhas.'}',
+              doUsuario: false,
+              arquivoUri: uri,
+              arquivoNome: nome,
+            ),
+          );
+        });
+        _rolarParaFim();
+      }
+    } catch (erro) {
+      if (mounted) {
+        setState(() {
+          _mensagens.add(
+            _MensagemChat(
+              texto:
+                  'Não foi possível preparar o relatório. ${erro.toString().replaceFirst('Exception: ', '')}',
+              doUsuario: false,
+            ),
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
   }
 
   Future<void> _baixarArquivo(_MensagemChat mensagem) async {
@@ -482,10 +853,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     final valores = <String, double>{};
     for (final campo in camposNumericos) {
       final valor = dados[campo];
-      final numero =
-          valor is num
-              ? valor.toDouble()
-              : double.tryParse(valor?.toString().replaceAll(',', '.') ?? '');
+      final numero = valor is num
+          ? valor.toDouble()
+          : double.tryParse(valor?.toString().replaceAll(',', '.') ?? '');
       if (numero == null || !numero.isFinite) return null;
       valores[campo] = numero;
     }
@@ -608,6 +978,28 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
     );
   }
 
+  Widget _checkboxSecao(
+    StateSetter setDialogState,
+    String chave,
+    String titulo,
+  ) {
+    return FilterChip(
+      selected: _secoesRelatorio.contains(chave),
+      label: Text(titulo),
+      selectedColor: const Color(0xFFBDE5CE),
+      checkmarkColor: const Color(0xFF0E7D63),
+      onSelected: (selecionado) {
+        setDialogState(() {
+          if (selecionado) {
+            _secoesRelatorio.add(chave);
+          } else {
+            _secoesRelatorio.remove(chave);
+          }
+        });
+      },
+    );
+  }
+
   Widget _campo(TextEditingController controller, String label, IconData icon) {
     return TextField(
       controller: controller,
@@ -617,10 +1009,9 @@ class _ChatBotanicoPageState extends State<ChatBotanicoPage> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      keyboardType:
-          label == 'Planta'
-              ? TextInputType.text
-              : const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: label == 'Planta'
+          ? TextInputType.text
+          : const TextInputType.numberWithOptions(decimal: true),
     );
   }
 }

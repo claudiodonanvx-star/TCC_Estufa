@@ -2,8 +2,6 @@ package br.com.estufa.desktop;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.List;
@@ -282,7 +280,7 @@ public class DesktopUnidadeApp extends Application {
 
         task.setOnSucceeded(event -> {
             try {
-                Files.writeString(path, task.getValue(), StandardCharsets.UTF_8);
+                exportService.exportConsolidatedCsv(path, task.getValue());
             } catch (IOException e) {
                 dashboardView.showError("Falha ao salvar CSV: " + e.getMessage());
             }

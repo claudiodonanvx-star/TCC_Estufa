@@ -24,6 +24,7 @@ javafx {
 dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
     implementation 'org.apache.pdfbox:pdfbox:2.0.31'
+    implementation 'org.jfree:jfreechart:1.5.5'
 }
 
 application {

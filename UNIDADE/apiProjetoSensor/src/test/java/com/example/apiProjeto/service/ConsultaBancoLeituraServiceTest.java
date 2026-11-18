@@ -91,20 +91,35 @@ class ConsultaBancoLeituraServiceTest {
     }
 
     @Test
-    void generatesCsvAndPdfDownloadsForRequestedPeriod() {
+    void generatesCsvAndPdfDownloadsForRequestedPeriod() throws java.io.IOException {
         ArquivoRelatorioService.ArquivoGerado csv = arquivoRelatorioService.gerar(
                 "sensor_data", java.time.LocalDate.parse("2026-10-28"),
                 java.time.LocalDate.parse("2026-10-28"), "csv");
         ArquivoRelatorioService.ArquivoGerado pdf = arquivoRelatorioService.gerar(
                 "sensor_data", java.time.LocalDate.parse("2026-10-28"),
-                java.time.LocalDate.parse("2026-10-28"), "pdf");
-
+                java.time.LocalDate.parse("2026-10-28"), "pdf", "personalizado",
+                "resumo,graficos,saude,alertas,recomendacoes");
         assertEquals("text/csv;charset=UTF-8", csv.tipoMime());
-        assertTrue(new String(csv.conteudo(), java.nio.charset.StandardCharsets.UTF_8)
-                .contains("estufa saudável"));
+        String conteudoCsv = new String(csv.conteudo(), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(conteudoCsv.startsWith("\uFEFF"));
+        assertTrue(conteudoCsv.contains("Temperatura;24,00 C;24,00 C;24,00 C"));
+        assertTrue(conteudoCsv.contains(
+                "Data;Temperatura media;Temperatura minima;Temperatura maxima;"));
+        assertTrue(conteudoCsv.contains(
+                "Id;Coletado Em;Temperatura;Umidade;Umidade Solo;Significado"));
+        assertTrue(conteudoCsv.contains("\"estufa saudável\""));
         assertEquals("application/pdf", pdf.tipoMime());
-        assertTrue(new String(pdf.conteudo(), java.nio.charset.StandardCharsets.US_ASCII)
-                .startsWith("%PDF-1.4"));
+        try (org.apache.pdfbox.pdmodel.PDDocument documento =
+                org.apache.pdfbox.pdmodel.PDDocument.load(pdf.conteudo())) {
+            assertEquals(3, documento.getNumberOfPages());
+            String textoPdf = new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
+            assertTrue(textoPdf.contains("RELATORIO INTELIGENTE"));
+            assertTrue(textoPdf.contains("Resumo executivo"));
+            assertTrue(textoPdf.contains("24.00 C"));
+            assertTrue(textoPdf.contains("EVOLUCAO DOS INDICADORES"));
+            assertTrue(textoPdf.contains("ANALISE DE ALERTAS E SAUDE"));
+            assertTrue(textoPdf.contains("Diagnostico"));
+        }
     }
 
     @Test
