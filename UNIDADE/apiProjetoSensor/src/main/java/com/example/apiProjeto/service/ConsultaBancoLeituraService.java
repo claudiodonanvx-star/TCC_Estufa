@@ -18,9 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConsultaBancoLeituraService {
 
     private static final int LIMITE_MAXIMO = 50;
-    private static final int LIMITE_EXPORTACAO = 5000;
+    private static final int LIMITE_EXPORTACAO = 100000;
     private static final int TAMANHO_MAXIMO_TERMO = 100;
-    private static final int JANELA_EXPORTACAO_MAXIMA_DIAS = 31;
 
     private static final Map<String, TabelaConsulta> TABELAS = Map.of(
             "sensor_data", new TabelaConsulta(
@@ -91,9 +90,6 @@ public class ConsultaBancoLeituraService {
         }
         if (fim.isBefore(inicio)) {
             throw new IllegalArgumentException("A data final deve ser igual ou posterior à inicial.");
-        }
-        if (fim.isAfter(inicio.plusDays(JANELA_EXPORTACAO_MAXIMA_DIAS - 1L))) {
-            throw new IllegalArgumentException("O intervalo máximo para exportação é de 31 dias.");
         }
         return consultarLinhas(
                 tabelaSolicitada, "", inicio, fim, LIMITE_EXPORTACAO, "antigos", LIMITE_EXPORTACAO);

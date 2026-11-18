@@ -52,10 +52,12 @@ public class ConsultaBotanicaController {
             @RequestParam String tabela,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
-            @RequestParam String formato) {
+            @RequestParam String formato,
+            @RequestParam(defaultValue = "executivo") String template,
+            @RequestParam(defaultValue = "resumo,graficos,saude,alertas,recomendacoes") String secoes) {
         try {
             ArquivoRelatorioService.ArquivoGerado arquivo =
-                    arquivoRelatorioService.gerar(tabela, inicio, fim, formato);
+                    arquivoRelatorioService.gerar(tabela, inicio, fim, formato, template, secoes);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(arquivo.tipoMime()))
                     .header(HttpHeaders.CONTENT_DISPOSITION,

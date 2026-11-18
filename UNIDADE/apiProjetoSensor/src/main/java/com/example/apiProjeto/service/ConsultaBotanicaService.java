@@ -875,7 +875,7 @@ public class ConsultaBotanicaService {
     private Map<String, Object> declaracaoGerarRelatorio() {
         return Map.of(
                 "name", "gerar_relatorio_arquivo",
-                "description", "Gera um arquivo CSV ou PDF para download com dados operacionais do banco. Use para pedidos explícitos de exportação. Informe o período inclusivo em datas AAAA-MM-DD e escolha a tabela operacional. A exportação aceita até 31 dias e 5000 linhas.",
+                "description", "Gera um relatório profissional CSV ou PDF para download com resumo executivo, série diária, gráficos no PDF e recomendações. Use para pedidos explícitos de exportação. Informe o período inclusivo em datas AAAA-MM-DD, escolha as seções e não imponha uma limitação artificial de dias.",
                 "parameters", Map.of(
                         "type", "OBJECT",
                         "properties", Map.of(
@@ -883,6 +883,13 @@ public class ConsultaBotanicaService {
                                         "type", "STRING",
                                         "enum", List.of("sensor_data", "alertas", "relatorio_diario"),
                                         "description", "Tabela operacional com data a exportar; use sensor_data para leituras."),
+                                "template", Map.of(
+                                        "type", "STRING",
+                                        "enum", List.of("executivo", "operacional", "alertas", "comparativo", "dados", "personalizado"),
+                                        "description", "Modelo profissional: executivo, operacional, alertas, comparativo ou dados completos."),
+                                "secoes", Map.of(
+                                        "type", "STRING",
+                                        "description", "Secoes separadas por virgula: resumo, graficos, temperatura, umidade, solo, saude, alertas, tendencias, recomendacoes, dados."),
                                 "inicio", Map.of(
                                         "type", "STRING",
                                         "description", "Data inicial inclusiva no formato AAAA-MM-DD."),
@@ -1194,21 +1201,26 @@ public class ConsultaBotanicaService {
         if (dataFim.isBefore(dataInicio)) {
             throw new IllegalArgumentException("A data final deve ser igual ou posterior à inicial.");
         }
-        if (dataFim.isAfter(dataInicio.plusDays(30))) {
-            throw new IllegalArgumentException("O intervalo máximo para exportação é de 31 dias.");
-        }
         String inicio = dataInicio.toString();
         String fim = dataFim.toString();
         String formato = argumentos.path("formato").asText("").toLowerCase(Locale.ROOT);
         if (!Set.of("csv", "pdf").contains(formato)) {
             throw new IllegalArgumentException("Escolha o formato CSV ou PDF.");
         }
+        String template = argumentos.path("template").asText("executivo").toLowerCase(Locale.ROOT);
+        if (!Set.of("executivo", "operacional", "alertas", "comparativo", "dados", "personalizado").contains(template)) {
+            template = "executivo";
+        }
+        String secoes = argumentos.path("secoes").asText(
+                "resumo,graficos,saude,alertas,recomendacoes,dados");
 
         String parametros = "tabela=" + codificarUrl(tabela)
                 + "&inicio=" + codificarUrl(inicio)
                 + "&fim=" + codificarUrl(fim)
-                + "&formato=" + codificarUrl(formato);
-        String nome = "estufa_" + tabela + "_" + inicio + "_a_" + fim + "." + formato;
+                + "&formato=" + codificarUrl(formato)
+                + "&template=" + codificarUrl(template)
+                + "&secoes=" + codificarUrl(secoes);
+        String nome = "estufa_" + tabela + "_" + template + "_" + inicio + "_a_" + fim + "." + formato;
         return Map.of(
                 "mensagem", "Arquivo pronto para download.",
                 "arquivoUrl", "/api/ia/relatorio?" + parametros,
